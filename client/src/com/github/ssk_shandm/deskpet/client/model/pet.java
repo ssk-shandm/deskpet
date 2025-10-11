@@ -1,4 +1,4 @@
-package com.github.ssk_shandm.deskpet.server.model;
+package com.github.ssk_shandm.deskpet.client.model;
 
 public class pet {
 }

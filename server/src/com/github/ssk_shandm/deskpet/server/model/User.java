@@ -1,66 +1,70 @@
 package com.github.ssk_shandm.deskpet.server.model;
 
-import java.security.Timestamp;
+import java.sql.Timestamp;
 
-// 用户必有信息
 public class User {
 
     private int id;
     private String username;
-    private double points;
     private String password;
-    private Timestamp createdA;
+    private Timestamp createdAt;
+    private int points;
 
     public User() {
     }
 
-    public User(int id, String username, double points, String password, Timestamp createdA) {
+    /**
+     * @param id 用户ID
+     * @param username 用户名
+     * @param password 密码
+     * @param createdAt 创建时间
+     */
+    public User(int id, String username, String password, Timestamp createdAt, int points) {
         this.id = id;
         this.username = username;
-        this.points = points;
         this.password = password;
-        this.createdA = createdA;
+        this.createdAt = createdAt;
+        this.points =  points;
     }
 
-    // Id
+
     public int getId() {
         return id;
     }
+
     public void setId(int id) {
         this.id = id;
     }
 
-    // Username
     public String getUsername() {
         return username;
     }
+
     public void setUsername(String username) {
         this.username = username;
     }
 
-    // Points
-    public double getPoints() {
-        return points;
-    }
-    public void setPoints(double points) {
-        this.points = points;
-    }
-
-    // Password
     public String getPassword() {
         return password;
     }
+
     public void setPassword(String password) {
         this.password = password;
     }
 
-    // CreatedA
-    public Timestamp getCreatedA() {
-        return createdA;
+    public Timestamp getCreatedAt() {
+        return createdAt;
     }
-    public void setCreatedA(Timestamp createdA) {
-        this.createdA = createdA;
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public int getPoints() {
+        return points;
+    }
+
+    public void setPoints(int points) {
+        this.points = points;
     }
 }
-
-
