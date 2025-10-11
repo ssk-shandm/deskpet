@@ -27,7 +27,39 @@ public class User {
         return id;
     }
     public void setId(int id) {
-        
+        this.id = id;
+    }
+
+    // Username
+    public String getUsername() {
+        return username;
+    }
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    // Points
+    public double getPoints() {
+        return points;
+    }
+    public void setPoints(double points) {
+        this.points = points;
+    }
+
+    // Password
+    public String getPassword() {
+        return password;
+    }
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    // CreatedA
+    public Timestamp getCreatedA() {
+        return createdA;
+    }
+    public void setCreatedA(Timestamp createdA) {
+        this.createdA = createdA;
     }
 }
 
