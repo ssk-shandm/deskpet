@@ -10,9 +10,9 @@ import java.sql.SQLException;
 public class PetDao {
 
     /**
-     * 从数据库获取唯一的宠物信息。
+     * 从数据库获取唯一的宠物信息
      *
-     * @return Pet 对象；如果数据库中还没有宠物，则返回 null。
+     * @return Pet 对象；如果数据库中还没有宠物，则返回 null
      */
     public Pet getPet() {
         String sql = "SELECT * FROM pets WHERE id = 1";
@@ -37,10 +37,10 @@ public class PetDao {
     }
 
     /**
-     * 将宠物信息更新到数据库。
+     * 将宠物信息更新到数据库
      *
-     * @param pet 包含了最新状态的 Pet 对象。
-     * @return 如果更新成功，返回 true；否则返回 false。
+     * @param pet 包含了最新状态的 Pet 对象
+     * @return 如果更新成功，返回 true；否则返回 false
      */
     public boolean updatePet(Pet pet) {
         String sql = "UPDATE pets SET name = ?, rank = ?, status = ? WHERE id = 1";
@@ -63,11 +63,11 @@ public class PetDao {
     }
 
     /**
-     * 首次创建宠物，并将其存入数据库。
-     * 这个方法应该只在检测到数据库中没有宠物时被调用一次。
+     * 首次创建宠物，并将其存入数据库
+     * 这个方法应该只在检测到数据库中没有宠物时被调用一次
      *
-     * @param pet 要创建的初始宠物对象。
-     * @return 如果创建成功，返回 true；否则返回 false。
+     * @param pet 要创建的初始宠物对象
+     * @return 如果创建成功，返回 true；否则返回 false
      */
     public boolean createPet(Pet pet) {
         String sql = "INSERT INTO pets (id, name, rank, status) VALUES (1, ?, ?, ?)";

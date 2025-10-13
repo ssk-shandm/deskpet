@@ -43,9 +43,9 @@ public class DatabaseUtil {
         String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "username TEXT NOT NULL UNIQUE," +
-                "password TEXT NOT NULL," +
+                // "password TEXT NOT NULL," +
                 "points INTEGER NOT NULL DEFAULT 0," +
-                "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                // "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ");";
 
         String createPetTableSql = "CREATE TABLE IF NOT EXISTS pets (" +
