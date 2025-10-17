@@ -6,6 +6,7 @@ public class Pet {
     private int rank;
     private String name;
     private String status;
+    private int likeability;
 
     public Pet() {
     }
@@ -14,13 +15,15 @@ public class Pet {
      * @param id     id
      * @param rank   等级
      * @param name   名字
+     * @param likeability 好感度
      * @param status 状态
      */
-    public Pet(int id, int rank, String name, String status) {
+    public Pet(int id, int rank, String name, String status, int likeability) {
         this.id = id;
         this.rank = rank;
         this.name = name;
         this.status = status;
+        this.likeability = likeability;
 
     }
 
@@ -55,5 +58,13 @@ public class Pet {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    // 好感度
+    public int getLikeability() {
+        return likeability;
+    }
+    public void setLikeability(int likeability) {
+        this.likeability = likeability;
     }
 }

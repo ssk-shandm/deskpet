@@ -2,7 +2,8 @@ package com.github.ssk_shandm.deskpet.server.main;
 
 import com.github.ssk_shandm.deskpet.server.service.PetService;
 import com.github.ssk_shandm.deskpet.server.service.UserService;
-import com.github.ssk_shandm.deskpet.server.model.User;
+// import com.github.ssk_shandm.deskpet.server.model.User;
+import com.github.ssk_shandm.deskpet.server.model.Pet;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,12 +15,12 @@ import java.net.SocketAddress;
 public class ClientHandler implements Runnable {
 
     private final Socket clientSocket;
-    private final UserService userService;
+    // private final UserService userService;
     private final PetService petService;
 
     public ClientHandler(Socket socket, UserService userService, PetService petService) {
         this.clientSocket = socket;
-        this.userService = userService;
+        // this.userService = userService;
         this.petService = petService;
     }
 
@@ -65,35 +66,63 @@ public class ClientHandler implements Runnable {
         String command = parts[0];
 
         switch (command) {
-            // // 登录
-            // case "LOGIN":
-            // if (parts.length == 3) {
-            // User user = userService.login(parts[1], parts[2]);
-            // return user != null ? "LOGIN_SUCCESS:" + user.getUsername() :
-            // "LOGIN_FAILED:用户名或密码错误";
-            // }
-            // return "ERROR:无效的LOGIN命令格式";
-
-            // // 注册
-            // case "REGISTER":
-            // if (parts.length == 3) {
-            // UserService.RegistrationResult result = userService.register(parts[1],
-            // parts[2]);
-            // return switch (result) {
-            // case SUCCESS -> "REGISTER_SUCCESS:注册成功";
-            // case USERNAME_ALREADY_EXISTS -> "REGISTER_FAILED:用户名已存在";
-            // default -> "REGISTER_FAILED:注册失败";
-            // };
-            // }
-            // return "ERROR:无效的REGISTER命令格式";
-
             case "GET":
-                User user = userService.getOrCreateUser();
-                return "USER_INFO:用户名=" + user.getUsername() + ",积分=" + user.getPoints();
+                Pet pet = petService.getOrCreatePet();
+                return "PET_DATA:" + pet.getLikeability() + "," + pet.getStatus();
 
-            default:
-                return "ERROR:未知的命令";
+            case "UPDATE":
+                int change = Integer.parseInt(parts[1]); //  字符串转化(改变值)
+                Pet currentPet = petService.getOrCreatePet();
+                int newLikeability = currentPet.getLikeability() + change;
 
+                // 好感度范围控制
+                if (newLikeability > 100)
+                    newLikeability = 100;
+                if (newLikeability < 0)
+                    newLikeability = 0;
+
+                currentPet.setLikeability(newLikeability);
+
+                // 状态变更逻辑
+                if (newLikeability == 0) {
+                    currentPet.setStatus("fainted");
+                } else {
+                    currentPet.setStatus("health");
+                }
+
+                petService.updatePet(currentPet); 
+                return "UPDATE_SUCCESS:" + currentPet.getLikeability();
         }
+
+        // // // 登录
+        // // case "LOGIN":
+        // // if (parts.length == 3) {
+        // // User user = userService.login(parts[1], parts[2]);
+        // // return user != null ? "LOGIN_SUCCESS:" + user.getUsername() :
+        // // "LOGIN_FAILED:用户名或密码错误";
+        // // }
+        // // return "ERROR:无效的LOGIN命令格式";
+
+        // // // 注册
+        // // case "REGISTER":
+        // // if (parts.length == 3) {
+        // // UserService.RegistrationResult result = userService.register(parts[1],
+        // // parts[2]);
+        // // return switch (result) {
+        // // case SUCCESS -> "REGISTER_SUCCESS:注册成功";
+        // // case USERNAME_ALREADY_EXISTS -> "REGISTER_FAILED:用户名已存在";
+        // // default -> "REGISTER_FAILED:注册失败";
+        // // };
+        // // }
+        // // return "ERROR:无效的REGISTER命令格式";
+
+        // case "GET":
+        // User user = userService.getOrCreateUser();
+        // return "USER_INFO:用户名=" + user.getUsername() + ",积分=" + user.getPoints();
+
+        // default:
+        return "ERROR:未知的命令";
+
     }
+
 }

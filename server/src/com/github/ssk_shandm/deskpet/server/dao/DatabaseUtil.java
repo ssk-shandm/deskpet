@@ -29,7 +29,7 @@ public class DatabaseUtil {
     }
 
     /**
-     * 程序首次运行时，用于初始化数据库和表的静态方法
+     * 程序首次运行时，用于初始化数据库和表
      */
     public static void initializeDatabase() {
 
@@ -40,25 +40,26 @@ public class DatabaseUtil {
         }
 
         logger.info("首次运行，正在初始化数据库...");
-        String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "username TEXT NOT NULL UNIQUE," +
-                // "password TEXT NOT NULL," +
-                "points INTEGER NOT NULL DEFAULT 0," +
-                // "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                ");";
+        // String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
+        // "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        // "username TEXT NOT NULL UNIQUE," +
+        // // "password TEXT NOT NULL," +
+        // "points INTEGER NOT NULL DEFAULT 0" +
+        // // "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+        // ");";
 
         String createPetTableSql = "CREATE TABLE IF NOT EXISTS pets (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT DEFAULT 'kami'," +
                 "rank INTEGER DEFAULT 1," +
-                "status TEXT DEFAULT 'health'" +
+                "status TEXT DEFAULT 'health'," +
+                "likeability INTEGER DEFAULT 0" +
                 ");";
 
         try (Connection cc = getConnection();
                 Statement stmt = cc.createStatement()) {
             // 执行建表
-            stmt.execute(createUserTableSql);
+            // stmt.execute(createUserTableSql);
             stmt.execute(createPetTableSql);
             logger.info("数据库表创建成功！");
         } catch (SQLException e) {

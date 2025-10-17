@@ -29,6 +29,8 @@ public class PetDao {
                 pet.setId(rs.getInt("id"));
                 pet.setName(rs.getString("name"));
                 pet.setRank(rs.getInt("Rank"));
+                pet.setStatus(rs.getString("Status"));
+                pet.setLikeability(rs.getInt("likeability"));
             }}
         } catch (SQLException e) {
             System.err.println("查询宠物数据时出错: " + e.getMessage());
@@ -38,12 +40,9 @@ public class PetDao {
 
     /**
      * 将宠物信息更新到数据库
-     *
-     * @param pet 包含了最新状态的 Pet 对象
-     * @return 如果更新成功，返回 true；否则返回 false
      */
     public boolean updatePet(Pet pet) {
-        String sql = "UPDATE pets SET name = ?, rank = ?, status = ? WHERE id = 1";
+        String sql = "UPDATE pets SET name = ?, rank = ?, status = ?, favorability = ? WHERE id = 1";
 
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -52,6 +51,7 @@ public class PetDao {
             pstmt.setString(1, pet.getName());
             pstmt.setInt(2, pet.getRank());
             pstmt.setString(3,pet.getStatus());
+            pstmt.setInt(4, pet.getLikeability());
 
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0; // 如果影响的行数大于0，说明更新成功
@@ -64,13 +64,10 @@ public class PetDao {
 
     /**
      * 首次创建宠物，并将其存入数据库
-     * 这个方法应该只在检测到数据库中没有宠物时被调用一次
-     *
-     * @param pet 要创建的初始宠物对象
-     * @return 如果创建成功，返回 true；否则返回 false
+     * 只在检测到数据库中没有宠物时被调用一次
      */
     public boolean createPet(Pet pet) {
-        String sql = "INSERT INTO pets (id, name, rank, status) VALUES (1, ?, ?, ?)";
+        String sql = "INSERT INTO pets (id, name, rank, status, likeability) VALUES (1, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -78,6 +75,7 @@ public class PetDao {
             pstmt.setString(1, pet.getName());
             pstmt.setInt(2, pet.getRank());
             pstmt.setString(3, pet.getStatus());
+            pstmt.setInt(4, pet.getLikeability());
 
             int affectedRows = pstmt.executeUpdate();
             return affectedRows > 0;

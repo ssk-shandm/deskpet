@@ -1,10 +1,10 @@
 package com.github.ssk_shandm.deskpet.server.main;
 
 import com.github.ssk_shandm.deskpet.server.dao.DatabaseUtil;
-import com.github.ssk_shandm.deskpet.server.model.User;
+// import com.github.ssk_shandm.deskpet.server.model.User;
 // import com.github.ssk_shandm.deskpet.server.dao.UserDao;
 // import com.github.ssk_shandm.deskpet.server.model.User;
-import com.github.ssk_shandm.deskpet.server.service.UserService;
+// import com.github.ssk_shandm.deskpet.server.service.UserService;
 import com.github.ssk_shandm.deskpet.server.service.PetService;
 // import com.github.ssk_shandm.deskpet.server.model.Pet;
 
@@ -42,12 +42,18 @@ public class Server {
         // System.out.println("成功");
         // }
 
-        UserService userService = new UserService();
+        // UserService userService = new UserService();
         PetService petService = new PetService();
 
         // 获取或创建唯一用户
-        User user = userService.getOrCreateUser();
-        System.out.println("当前用户: " + user.getUsername() + ", 积分: " + user.getPoints());
+        // User user = userService.getOrCreateUser();
+
+        // if (user != null) {
+        //     System.out.println("当前用户: " + user.getUsername() + ", 积分: " + user.getPoints());
+        // } else {
+        //     System.err.println("严重错误：无法获取或创建用户！");
+        //     return;
+        // }
 
         // 获取或创建宠物
         // System.out.println("正在获取宠物信息...");
@@ -79,9 +85,9 @@ public class Server {
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("接收到新的客户端连接: " + clientSocket.getRemoteSocketAddress());
 
-                // 为每个客户端创建一个新的线程来处理
-                ClientHandler clientHandler = new ClientHandler(clientSocket, userService, petService);
-                new Thread(clientHandler).start();
+                // // 为每个客户端创建一个新的线程来处理
+                // ClientHandler clientHandler = new ClientHandler(clientSocket, userService, petService);
+                // new Thread(clientHandler).start();
             }
 
         } catch (IOException e) {
