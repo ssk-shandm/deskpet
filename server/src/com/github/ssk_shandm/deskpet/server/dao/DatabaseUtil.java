@@ -40,28 +40,36 @@ public class DatabaseUtil {
         }
 
         logger.info("首次运行，正在初始化数据库...");
-        // String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
-        // "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-        // "username TEXT NOT NULL UNIQUE," +
-        // // "password TEXT NOT NULL," +
-        // "points INTEGER NOT NULL DEFAULT 0" +
-        // // "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-        // ");";
+
+        String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "username TEXT NOT NULL UNIQUE" +
+                // "password TEXT NOT NULL," +
+                // "points INTEGER NOT NULL DEFAULT 0" +
+                // "createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ");";
 
         String createPetTableSql = "CREATE TABLE IF NOT EXISTS pets (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "name TEXT DEFAULT 'kami'," +
+                "name TEXT NOT NULL UNIQUE," +
                 "rank INTEGER DEFAULT 1," +
                 "status TEXT DEFAULT 'health'," +
-                "likeability INTEGER DEFAULT 0" +
+                "likeability INTEGER DEFAULT 100" +
                 ");";
+
+        String insertDefaultPetSql = "INSERT INTO pets (name, rank, status, likeability) VALUES ('seia', 1, 'health', 100);";
+        String insertDefaultUserSql = "INSERT INTO users (username) VALUES ('testuser');";
 
         try (Connection cc = getConnection();
                 Statement stmt = cc.createStatement()) {
             // 执行建表
-            // stmt.execute(createUserTableSql);
+            stmt.execute(createUserTableSql);
             stmt.execute(createPetTableSql);
             logger.info("数据库表创建成功！");
+
+            stmt.execute(insertDefaultPetSql);
+            stmt.execute(insertDefaultUserSql);
+            logger.info("默认数据插入成功！");
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "数据库初始化失败", e);
         }
