@@ -40,8 +40,6 @@ public class ApiClient {
 
     /**
      * 从服务器获取宠物数据
-     * 
-     * @return 好感度和状态组成的字符串数组,格式为 [好感度, 状态];如果获取失败则返回 null 
      */
     public String[] getPetData() {
         String response = sendRequest("GET");

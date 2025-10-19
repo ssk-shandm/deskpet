@@ -34,6 +34,10 @@ public class DatabaseUtil {
     public static void initializeDatabase() {
 
         File dbFile = new File("deskpet.db");
+
+        // 调试：输出数据库文件路径
+        logger.info("Database file path: " + dbFile.getAbsolutePath());
+
         if (dbFile.exists()) {
             logger.info("数据库文件已存在，无需初始化。");
             return;
@@ -52,12 +56,11 @@ public class DatabaseUtil {
         String createPetTableSql = "CREATE TABLE IF NOT EXISTS pets (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL UNIQUE," +
-                "rank INTEGER DEFAULT 1," +
                 "status TEXT DEFAULT 'health'," +
                 "likeability INTEGER DEFAULT 100" +
                 ");";
 
-        String insertDefaultPetSql = "INSERT INTO pets (name, rank, status, likeability) VALUES ('seia', 1, 'health', 100);";
+        String insertDefaultPetSql = "INSERT INTO pets (name, status, likeability) VALUES ('seia', 'health', 100);";
         String insertDefaultUserSql = "INSERT INTO users (username) VALUES ('testuser');";
 
         try (Connection cc = getConnection();

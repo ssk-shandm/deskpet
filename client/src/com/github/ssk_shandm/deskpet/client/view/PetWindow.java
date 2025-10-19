@@ -32,6 +32,11 @@ public class PetWindow extends JWindow {
     // 右键菜单
     private JPopupMenu Menu;
     private JMenuItem exitMenu;
+    private JMenuItem likeabilityItem;
+    private JMenuItem statusItem;
+    private JMenuItem nameItem;
+    private JMenuItem rankItem;
+    private JMenuItem cheatlikeabilityItem;
 
     // 客户端核心逻辑
     private final ApiClient apiClient = new ApiClient();
@@ -131,6 +136,12 @@ public class PetWindow extends JWindow {
              */
             @Override
             public void mouseReleased(java.awt.event.MouseEvent e) {
+
+                if (e.isPopupTrigger()) {
+                    showMenu(e);
+                    return;
+                }
+
                 if ("pickup".equals(currentAnimationName))
                     playIdleWithLikeability();
                 mousePressStart = null;
@@ -139,7 +150,16 @@ public class PetWindow extends JWindow {
 
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
+            }
 
+            /**
+             * 鼠标进入窗口时隐藏菜单
+             */
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                if (Menu != null && Menu.isVisible()) {
+                    Menu.setVisible(false);
+                }
             }
 
             /**
@@ -182,23 +202,80 @@ public class PetWindow extends JWindow {
     private void RightMenu() {
         Menu = new JPopupMenu();
 
+        // 信息显示
+        likeabilityItem = new JMenuItem("好感度");
+        statusItem = new JMenuItem("状态");
+        nameItem = new JMenuItem("名称");
+        likeabilityItem.setEnabled(false);
+        statusItem.setEnabled(false);
+        nameItem.setEnabled(false);
+        Menu.add(likeabilityItem);
+        Menu.add(statusItem);
+        Menu.add(nameItem);
+
+        Menu.addSeparator();
+
+        Menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                likeabilityItem.setText("好感度: " + currentLikeability);
+                statusItem.setText("状态: '" + currentStatus + "'");
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
+            }
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
+            }
+        });
+
+        // 好感度修改
+        cheatlikeabilityItem = new JMenuItem("likeability test:");
+
+        cheatlikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        cheatlikeabilityItem.setBackground(Menu.getBackground());
+        cheatlikeabilityItem.setForeground(Color.ORANGE);
+
+        cheatlikeabilityItem.addActionListener(e -> {
+            String input = JOptionPane.showInputDialog(PetWindow.this, "(0-100):", currentLikeability);
+
+            if (input == null) {
+                return;
+            }
+
+            try {
+                int newLikeability = Integer.parseInt(input);
+
+                if (newLikeability > 100)
+                    newLikeability = 100;
+                if (newLikeability < 0)
+                    newLikeability = 0;
+
+                int difference = newLikeability - currentLikeability;
+
+                if (difference == 0) {
+                    return;
+                }
+
+                new Thread(() -> {
+                    System.out.println("change:" + difference);
+                    apiClient.updateLikeability(difference);
+                }).start();
+
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(PetWindow.this, "none", "error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        Menu.add(cheatlikeabilityItem);
+
         // 退出
         exitMenu = new JMenuItem("退出");
         exitMenu.addActionListener(e -> {
             System.out.println("退出...");
             System.exit(0);
         });
-
-        // 
-
-
-
-
-
-
-
-
-
 
         Menu.add(exitMenu);
     }
@@ -249,8 +326,8 @@ public class PetWindow extends JWindow {
 
                 "idle_happy", "idle_normal", "idle_ignore", "idle_sad",
                 "pickup", "happy", "faint",
-                "walk_n", "walk_s", "walk_e", "walk_w", "walk_ne", "walk_nw", "walk_se",
-                "walk_sw"
+                "walk_n", "walk_s", "walk_e", "walk_w", "walk_ne", "walk_nw", "walk_se", "walk_sw",
+                "attack", "jump", "knockdown", "skill"
         };
 
         // 逐个动画加载

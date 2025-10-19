@@ -71,8 +71,14 @@ public class ClientHandler implements Runnable {
                 return "PET_DATA:" + pet.getLikeability() + "," + pet.getStatus();
 
             case "UPDATE":
-                int change = Integer.parseInt(parts[1]); //  字符串转化(改变值)
+                int change = Integer.parseInt(parts[1]); // 字符串转化(改变值)
                 Pet currentPet = petService.getOrCreatePet();
+
+                // 调试：打印收到的请求和当前状态
+                System.out.println("[ClientHandler Test] Received UPDATE request. Change=" + change
+                        + ", Current Pet State: ID=" + currentPet.getId() + ", Likeability="
+                        + currentPet.getLikeability() + ", Status=" + currentPet.getStatus());
+
                 int newLikeability = currentPet.getLikeability() + change;
 
                 // 好感度范围控制
@@ -87,11 +93,19 @@ public class ClientHandler implements Runnable {
                 if (newLikeability == 0) {
                     currentPet.setStatus("fainted");
                 } else {
-                    currentPet.setStatus("health");
+                    if ("fainted".equals(currentPet.getStatus())) {
+                        currentPet.setStatus("health");
+                    }
                 }
 
-                petService.updatePet(currentPet); 
-                return "UPDATE_SUCCESS:" + currentPet.getLikeability();
+                // 调试：打印更新后的宠物状态
+                System.out.println(
+                        "[ClientHandler Test] Calling petService.updatePet with Pet State: ID=" + currentPet.getId() +
+                                ", Likeability=" + currentPet.getLikeability() +
+                                ", Status=" + currentPet.getStatus());
+
+                petService.updatePet(currentPet);
+                return "UPDATE:" + currentPet.getLikeability();
         }
 
         // // // 登录
