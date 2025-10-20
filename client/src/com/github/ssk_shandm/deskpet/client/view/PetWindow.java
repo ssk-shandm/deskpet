@@ -12,6 +12,7 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
+
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class PetWindow extends JWindow {
     private JPopupMenu Menu;
     private JMenuItem exitMenu;
     private JMenuItem cheatlikeabilityItem;
+    private JMenuItem hammerItem;
     private final long clickCooldown = 50000; // ms
     private long lastClickTime = 0;
 
@@ -42,6 +44,11 @@ public class PetWindow extends JWindow {
     private int currentLikeability;
     private String currentStatus;
     private Timer dataSyncTimer;
+
+    // 锤子
+    private boolean isHammerMode = false;
+    private final Cursor hammerCursor = createHammerCursor();
+    private final Cursor defaultCursor = Cursor.getDefaultCursor();
 
     /**
      * 入口
@@ -124,7 +131,7 @@ public class PetWindow extends JWindow {
          */
         @Override
         protected void process(List<BufferedImage> chunks) {
-            BufferedImage firstFrame = chunks.get(0); 
+            BufferedImage firstFrame = chunks.get(0);
             if (firstFrame != null) {
                 System.out.println("UI线程：收到第一帧，正在显示宠物...");
                 // 窗口大小调整和显示
@@ -145,7 +152,7 @@ public class PetWindow extends JWindow {
         @Override
         protected void done() {
             try {
-                get(); 
+                get();
                 System.out.println("后台：所有动画已成功加载！总动画数: " + animations.size());
             } catch (InterruptedException | ExecutionException e) {
                 System.err.println("后台加载过程中发生严重错误: " + e.getMessage());
@@ -425,6 +432,12 @@ public class PetWindow extends JWindow {
         });
         Menu.add(cheatlikeabilityItem);
 
+        // 锤子
+        hammerItem = new JMenuItem("🔨敲击!");
+        hammerItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        hammerItem.addActionListener(e -> toggleHammerMode());
+        Menu.add(hammerItem);
+
         // 退出
         exitMenu = new JMenuItem("退出");
         exitMenu.addActionListener(e -> {
@@ -453,7 +466,42 @@ public class PetWindow extends JWindow {
         };
         infoItem.addMouseListener(childMouseListener);
         cheatlikeabilityItem.addMouseListener(childMouseListener);
+        hammerItem.addMouseListener(childMouseListener);
         exitMenu.addMouseListener(childMouseListener);
+    }
+
+    /**
+     * 创建锤子光标
+     */
+    private Cursor createHammerCursor() {
+        try {
+            URL imageUrl = getClass().getResource("tools/hammer.png");
+
+            Image cursorImage = ImageIO.read(imageUrl);
+            Point hotspot = new Point(8, 8);
+            return Toolkit.getDefaultToolkit().createCustomCursor(cursorImage, hotspot, "hammer");
+        } catch (IOException e) {
+            System.err.println("加载 'hammer.png' 光标失败，使用备用光标: " + e.getMessage());
+            return Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR);
+        } catch (Exception e) {
+            System.err.println("创建光标时发生未知错误: " + e.getMessage());
+            return Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    }
+
+    /**
+     * 切换锤子模式
+     */
+    private void toggleHammerMode() {
+        isHammerMode = !isHammerMode;
+
+        if (isHammerMode) {
+            setCursor(hammerCursor);
+            hammerItem.setText("取消锤子");
+        } else {
+            setCursor(defaultCursor);
+            hammerItem.setText("锤子");
+        }
     }
 
     /**
@@ -477,16 +525,38 @@ public class PetWindow extends JWindow {
         @Override
         public void mousePressed(MouseEvent e) {
             if (SwingUtilities.isLeftMouseButton(e)) {
-                mousePressStart = e.getPoint(); 
 
-                long currentTime = System.currentTimeMillis();
+                if (currentAnimationName != null && !isLoopingAnimation(currentAnimationName)) {
 
-                if (currentTime - lastClickTime >= clickCooldown) {
-                    playAnimation("happy");
-                    lastClickTime = currentTime;
+                    if ("pickup".equals(currentAnimationName)) {
+                        mousePressStart = e.getPoint();
+                    }
+
+                    return;
+                }
+                if (isHammerMode) {
+                    System.out.println("锤击！");
+                    playAnimation("headache");
+
+                    int decreaseAmount = -5;
+                    new Thread(() -> {
+                        System.out.println("好感度变化: " + decreaseAmount);
+                        apiClient.updateLikeability(decreaseAmount);
+                    }).start();
+
+                    toggleHammerMode();
+
                 } else {
+                    mousePressStart = e.getPoint();
 
-                    playAnimation("pickup");
+                    long currentTime = System.currentTimeMillis();
+
+                    if (currentTime - lastClickTime >= clickCooldown) {
+                        playAnimation("happy");
+                        lastClickTime = currentTime;
+                    } else {
+                        playAnimation("pickup");
+                    }
                 }
             }
         }

@@ -7,7 +7,7 @@ import com.github.ssk_shandm.deskpet.client.view.PetWindow;
 import javax.swing.*;
 import java.util.concurrent.ExecutionException;
 
-public class Main {
+public class   Main {
     public static void main(String[] args) {
         FlatLightLaf.setup();
 
