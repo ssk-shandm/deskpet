@@ -68,7 +68,7 @@ public class ClientHandler implements Runnable {
         switch (command) {
             case "GET":
                 Pet pet = petService.getOrCreatePet();
-                return "PET_DATA:" + pet.getLikeability() + "," + pet.getStatus();
+                return "PET_DATA:" + pet.getName() + "," + pet.getLikeability() + "," + pet.getStatus();
 
             case "UPDATE":
                 int change = Integer.parseInt(parts[1]); // 字符串转化(改变值)
@@ -78,6 +78,7 @@ public class ClientHandler implements Runnable {
                 System.out.println("[ClientHandler Test] Received UPDATE request. Change=" + change
                         + ", Current Pet State: ID=" + currentPet.getId() + ", Likeability="
                         + currentPet.getLikeability() + ", Status=" + currentPet.getStatus());
+                System.out.flush();
 
                 int newLikeability = currentPet.getLikeability() + change;
 
@@ -103,6 +104,7 @@ public class ClientHandler implements Runnable {
                         "[ClientHandler Test] Calling petService.updatePet with Pet State: ID=" + currentPet.getId() +
                                 ", Likeability=" + currentPet.getLikeability() +
                                 ", Status=" + currentPet.getStatus());
+                System.out.flush();
 
                 petService.updatePet(currentPet);
                 return "UPDATE:" + currentPet.getLikeability();

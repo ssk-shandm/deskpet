@@ -42,24 +42,26 @@ public class PetDao {
      * 将宠物信息更新到数据库
      */
     public boolean updatePet(Pet pet) {
-        String sql = "UPDATE pets SET name = ?, rank = ?, status = ?, likeability = ? WHERE id = 1";
+        String sql = "UPDATE pets SET name = ?, status = ?, likeability = ? WHERE id = 1";
 
         // 调试：数据库更新
         System.out.println("[PetDao Test] Name=" + pet.getName() + ", Status=" + pet.getStatus() + ", Likeability="
                 + pet.getLikeability());
+        System.out.flush();
 
         try (Connection conn = DatabaseUtil.getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             // 更新参数
             pstmt.setString(1, pet.getName());
-            pstmt.setString(3, pet.getStatus());
-            pstmt.setInt(4, pet.getLikeability());
+            pstmt.setString(2, pet.getStatus());
+            pstmt.setInt(3, pet.getLikeability());
 
             int affectedRows = pstmt.executeUpdate();
 
             // 调试：输出
             System.out.println("[PetDao Test] Update: " + affectedRows);
+            System.out.flush();
 
             return affectedRows > 0;
 

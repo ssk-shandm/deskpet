@@ -37,6 +37,7 @@ public class DatabaseUtil {
 
         // 调试：输出数据库文件路径
         logger.info("Database file path: " + dbFile.getAbsolutePath());
+        System.out.flush();
 
         if (dbFile.exists()) {
             logger.info("数据库文件已存在，无需初始化。");

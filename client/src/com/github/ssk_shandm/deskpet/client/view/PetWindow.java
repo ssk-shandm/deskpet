@@ -3,6 +3,9 @@ package com.github.ssk_shandm.deskpet.client.view;
 import com.github.ssk_shandm.deskpet.client.network.ApiClient;
 
 import javax.swing.*;
+
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
@@ -12,12 +15,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+// import java.util.Random;
 
 public class PetWindow extends JWindow {
 
     // 缩放比例
-    private final double scale = 0.5;
+    private final double scale = 0.7;
 
     // 动画仓库
     private final Map<String, List<BufferedImage>> animations = new HashMap<>();
@@ -32,14 +35,15 @@ public class PetWindow extends JWindow {
     // 右键菜单
     private JPopupMenu Menu;
     private JMenuItem exitMenu;
-    private JMenuItem likeabilityItem;
-    private JMenuItem statusItem;
-    private JMenuItem nameItem;
-    private JMenuItem rankItem;
+    // private JMenuItem likeabilityItem;
+    // private JMenuItem statusItem;
+    // private JMenuItem nameItem;
+    // private JMenuItem rankItem;
     private JMenuItem cheatlikeabilityItem;
 
     // 客户端核心逻辑
     private final ApiClient apiClient = new ApiClient();
+    private String petName = "";
     private int currentLikeability = -1;
     private String currentStatus = "";
     private Timer dataSyncTimer; // 数据同步定时器
@@ -49,7 +53,7 @@ public class PetWindow extends JWindow {
     private long lastSuccessfulClickTime = 0;
 
     // 随机移动变量
-    private Timer movementTimer; // 决定器
+    // private Timer movementTimer; // 决定器
     private boolean isMoving = false; // 是否移动状态锁
     private Point targetPosition; // 移动的目标位置
     private double currentVelocityX; // X轴
@@ -203,23 +207,20 @@ public class PetWindow extends JWindow {
         Menu = new JPopupMenu();
 
         // 信息显示
-        likeabilityItem = new JMenuItem("好感度");
-        statusItem = new JMenuItem("状态");
-        nameItem = new JMenuItem("名称");
-        likeabilityItem.setEnabled(false);
-        statusItem.setEnabled(false);
-        nameItem.setEnabled(false);
-        Menu.add(likeabilityItem);
-        Menu.add(statusItem);
-        Menu.add(nameItem);
-
+        final JMenuItem infoItem = new JMenuItem();
+        infoItem.setEnabled(false);
+        infoItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        Menu.add(infoItem);
         Menu.addSeparator();
 
         Menu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
-                likeabilityItem.setText("好感度: " + currentLikeability);
-                statusItem.setText("状态: '" + currentStatus + "'");
+                String infoText = String.format("名称: %s | 状态: '%s' | 好感度: %d",
+                        petName,
+                        currentStatus,
+                        currentLikeability);
+                infoItem.setText(infoText);
             }
 
             @Override
@@ -278,6 +279,28 @@ public class PetWindow extends JWindow {
         });
 
         Menu.add(exitMenu);
+
+        // 右键菜单消耗逻辑
+        Menu.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!Menu.contains(e.getPoint())) {
+                    Menu.setVisible(false);
+                }
+            }
+        });
+        MouseAdapter childMouseListener = new MouseAdapter() {
+            @Override
+            public void mouseExited(MouseEvent e) {
+                Point p = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), Menu);
+                if (!Menu.contains(p)) {
+                    Menu.setVisible(false);
+                }
+            }
+        };
+        infoItem.addMouseListener(childMouseListener);
+        cheatlikeabilityItem.addMouseListener(childMouseListener);
+        exitMenu.addMouseListener(childMouseListener);
     }
 
     /**
@@ -286,15 +309,17 @@ public class PetWindow extends JWindow {
     private void syncDataWithServer() {
         new Thread(() -> {
             String[] data = apiClient.getPetData();
-            if (data != null && data.length == 2) {
-                int likeabilityFromServer = Integer.parseInt(data[0]); // 好感度
-                String statusFromServer = data[1]; // 状态
+            if (data != null && data.length == 3) {
+                String nameFromServer = data[0];
+                int likeabilityFromServer = Integer.parseInt(data[1]); // 好感度
+                String statusFromServer = data[2]; // 状态
 
                 // 数据同步逻辑
                 if (likeabilityFromServer != currentLikeability || !statusFromServer.equals(currentStatus)) {
                     System.out.println("数据同步：好感度 " + currentLikeability + " -> " + likeabilityFromServer +
                             ", 状态 '" + currentStatus + "' -> '" + statusFromServer + "'");
 
+                    petName = nameFromServer;
                     currentLikeability = likeabilityFromServer;
                     currentStatus = statusFromServer;
 
@@ -464,17 +489,13 @@ public class PetWindow extends JWindow {
 
         BufferedImage originalFrame = frames.get(currentFrameIndex);
 
-        // 计算缩放后的新尺寸
         int newWidth = (int) (originalFrame.getWidth() * scale);
         int newHeight = (int) (originalFrame.getHeight() * scale);
 
-        // 获取缩放后的图片实例
         Image scaledImage = originalFrame.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
 
-        // 将缩放后的图片设置到 JLabel 上
         imageLabel.setIcon(new ImageIcon(scaledImage));
 
-        // 动态调整窗口大小以适应缩放后的图片
         if (getWidth() != newWidth || getHeight() != newHeight) {
             setSize(newWidth, newHeight);
         }
