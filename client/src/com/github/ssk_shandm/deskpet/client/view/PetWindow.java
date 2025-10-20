@@ -1,203 +1,357 @@
+// PetWindow.java
+
 package com.github.ssk_shandm.deskpet.client.view;
 
 import com.github.ssk_shandm.deskpet.client.network.ApiClient;
 
 import javax.swing.*;
-
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-// import java.util.Random;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class PetWindow extends JWindow {
 
-    // 缩放比例
     private final double scale = 0.7;
-
-    // 动画仓库
     private final Map<String, List<BufferedImage>> animations = new HashMap<>();
     private final JLabel imageLabel = new JLabel();
     private Timer animationTimer;
     private String currentAnimationName;
     private int currentFrameIndex;
 
-    // 交互变量
     private Point mousePressStart;
-
-    // 右键菜单
     private JPopupMenu Menu;
     private JMenuItem exitMenu;
-    // private JMenuItem likeabilityItem;
-    // private JMenuItem statusItem;
-    // private JMenuItem nameItem;
-    // private JMenuItem rankItem;
     private JMenuItem cheatlikeabilityItem;
+    private final long clickCooldown = 50000; // ms
+    private long lastClickTime = 0;
 
-    // 客户端核心逻辑
     private final ApiClient apiClient = new ApiClient();
-    private String petName = "";
-    private int currentLikeability = -1;
-    private String currentStatus = "";
-    private Timer dataSyncTimer; // 数据同步定时器
+    private String petName;
+    private int currentLikeability;
+    private String currentStatus;
+    private Timer dataSyncTimer;
 
-    // 点击冷却
-    private final long ONE_HOUR_IN_MS = 60 * 60 * 1000;
-    private long lastSuccessfulClickTime = 0;
+    /**
+     * 入口
+     */
+    public PetWindow(String petName, int initialLikeability, String initialStatus) {
+        this.petName = petName;
+        this.currentLikeability = initialLikeability;
+        this.currentStatus = initialStatus;
 
-    // 随机移动变量
-    // private Timer movementTimer; // 决定器
-    private boolean isMoving = false; // 是否移动状态锁
-    private Point targetPosition; // 移动的目标位置
-    private double currentVelocityX; // X轴
-    private double currentVelocityY; // Y轴
-    private int animationLoopCount = 0; // 循环次数
+        // 创建并显示一个空窗口
+        setupWindow();
+        setVisible(true);
 
-    public PetWindow() {
-        loadAnimations();
+        // 启动一个后台加载器来处理所有耗时操作
+        new AnimationLoader().execute();
 
-        // setSize(718, 926);
+        // 设置交互
+        setupInteraction();
+    }
 
-        if (animations.isEmpty()) {
-            System.err.println("错误：没有任何动画被成功加载！程序将退出。");
-            return;
-        }
-
-        // 窗口属性
+    /**
+     * 初始化窗口的基本属性
+     */
+    private void setupWindow() {
         setAlwaysOnTop(true);
+        setBounds(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds());
+        setLocationRelativeTo(null);
         setBackground(new Color(0, 0, 0, 0));
         add(imageLabel);
+        pack();
+    }
 
-        // 窗口位置
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        setLocation((screenSize.width - 300) / 2, (screenSize.height - 300) / 2);
+    /**
+     * 实现后台加载
+     */
+    private class AnimationLoader extends SwingWorker<Void, BufferedImage> {
 
-        // 添加鼠标事件监听器 - 点击
-        addMouseListener(new java.awt.event.MouseAdapter() {
-            /**
-             * 检查冷却状态,动作决策
-             */
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
+        /**
+         * 动画加载逻辑
+         */
+        @Override
+        protected Void doInBackground() throws Exception {
+            // 加载优先动画
+            System.out.println("后台：开始加载优先动画...");
+            Map<String, List<BufferedImage>> priorityAnimations = loadPriorityAnimations(petName, currentLikeability);
+            animations.putAll(priorityAnimations);
 
-                // 右键响应模式
-                if (e.isPopupTrigger()) {
-                    showMenu(e);
-                    return;
-                }
-
-                // 只响应鼠标左键
-                if (!SwingUtilities.isLeftMouseButton(e)) {
-                    return;
-                }
-
-                // 防干扰逻辑
-                if ("happy".equals(currentAnimationName)) {
-                    System.out.println("正在播放 happy 动画");
-                    return;
-                }
-
-                if (isPixelTransparent(e.getX(), e.getY())) {
-                    return;
-                }
-
-                long currentTime = System.currentTimeMillis();
-                boolean isInCooldown = (currentTime - lastSuccessfulClickTime < ONE_HOUR_IN_MS);
-
-                if (isInCooldown) {
-                    System.out.println("冷却中，进入拖动模式...");
-
-                    if (isMoving) {
-                        isMoving = false;
-                        System.out.println("移动被用户交互中断。");
-                    }
-
-                    mousePressStart = e.getPoint();
-                    playAnimation("pickup");
-                } else {
-                    System.out.println("有效点击！增加好感度。");
-
-                    // 更新冷却时间
-                    lastSuccessfulClickTime = currentTime;
-
-                    playAnimation("happy");
-
-                    new Thread(() -> {
-                        apiClient.updateLikeability(5);
-                    }).start();
-                }
+            // 第一帧
+            String initialAnimationName = getDefaultIdleAnimation(currentLikeability);
+            if (!animations.containsKey(initialAnimationName) || animations.get(initialAnimationName).isEmpty()) {
+                initialAnimationName = "idle_normal"; // 回退方案
             }
 
-            /**
-             * 鼠标松开的瞬间恢复待机状态, 并重置拖动点
-             */
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent e) {
+            if (animations.containsKey(initialAnimationName) && !animations.get(initialAnimationName).isEmpty()) {
+                BufferedImage firstFrame = animations.get(initialAnimationName).get(0);
+                // 显示
+                publish(firstFrame);
+                currentAnimationName = initialAnimationName; // 设置当前动画名称
+            } else {
 
-                if (e.isPopupTrigger()) {
-                    showMenu(e);
-                    return;
-                }
-
-                if ("pickup".equals(currentAnimationName))
-                    playIdleWithLikeability();
-                mousePressStart = null;
-
+                throw new RuntimeException("关键动画 (idle) 加载失败，无法启动宠物");
             }
 
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-            }
+            // 加载剩余的动画
+            System.out.println("后台：开始加载剩余动画...");
+            List<String> allTypes = listAnimationTypes(petName);
+            List<String> remainingNames = allTypes.stream()
+                    .filter(name -> !animations.containsKey(name))
+                    .collect(Collectors.toList());
 
-            /**
-             * 鼠标进入窗口时隐藏菜单
-             */
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                if (Menu != null && Menu.isVisible()) {
-                    Menu.setVisible(false);
-                }
-            }
+            System.out.println("后台加载列表: " + remainingNames);
+            Map<String, List<BufferedImage>> remainingAnimations = loadSpecificAnimations(petName, remainingNames);
+            animations.putAll(remainingAnimations);
 
-            /**
-             * 右键菜单像素点检测
-             */
-            private void showMenu(java.awt.event.MouseEvent e) {
-                if (!isPixelTransparent(e.getX(), e.getY())) {
-                    Menu.show(e.getComponent(), e.getX(), e.getY());
+            return null;
+        }
+
+        /**
+         * 显示与后程辅助
+         */
+        @Override
+        protected void process(List<BufferedImage> chunks) {
+            BufferedImage firstFrame = chunks.get(0); 
+            if (firstFrame != null) {
+                System.out.println("UI线程：收到第一帧，正在显示宠物...");
+                // 窗口大小调整和显示
+                imageLabel.setIcon(new ImageIcon(firstFrame.getScaledInstance(
+                        (int) (firstFrame.getWidth() * scale),
+                        (int) (firstFrame.getHeight() * scale),
+                        Image.SCALE_SMOOTH)));
+                pack();
+
+                startAnimationTimer();
+                startDataSyncTimer();
+            }
+        }
+
+        /**
+         * 错误提示
+         */
+        @Override
+        protected void done() {
+            try {
+                get(); 
+                System.out.println("后台：所有动画已成功加载！总动画数: " + animations.size());
+            } catch (InterruptedException | ExecutionException e) {
+                System.err.println("后台加载过程中发生严重错误: " + e.getMessage());
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(PetWindow.this, "加载宠物资源时发生错误:\n" + e.getCause().getMessage(), "错误",
+                        JOptionPane.ERROR_MESSAGE);
+                dispose();
+            }
+        }
+    }
+
+    /**
+     * 根据好感度获取对应的idle动画名称
+     */
+    private String getDefaultIdleAnimation(int favorability) {
+        if (favorability > 70)
+            return "idle_happy";
+        if (favorability < 30)
+            return "idle_sad";
+        return "idle_normal";
+    }
+
+    /**
+     * 加载优先动画
+     */
+    private Map<String, List<BufferedImage>> loadPriorityAnimations(String petName, int favorability) {
+        List<String> priorityNames = new ArrayList<>();
+        priorityNames.add(getDefaultIdleAnimation(favorability));
+        priorityNames.add("happy");
+        priorityNames.add("pickup");
+        if (!priorityNames.contains("idle_normal")) {
+            priorityNames.add("idle_normal");
+        }
+        System.out.println("优先加载列表: " + priorityNames);
+        return loadSpecificAnimations(petName, priorityNames);
+    }
+
+    /**
+     * 根据动画名称列表加载动画文件
+     */
+    private Map<String, List<BufferedImage>> loadSpecificAnimations(String petName, List<String> animationNames) {
+        Map<String, List<BufferedImage>> loadedAnimations = new HashMap<>();
+        for (String animName : animationNames) {
+            List<BufferedImage> frames = new ArrayList<>();
+            String animationPathPrefix = "/BA/" + petName + "/" + animName + "/";
+            int frameIndex = 0;
+            while (true) {
+                String frameFileName = String.format("%04d.png", frameIndex);
+                URL resourceUrl = getClass().getResource(animationPathPrefix + frameFileName);
+                if (resourceUrl == null)
+                    break;
+                try {
+                    BufferedImage frame = ImageIO.read(resourceUrl);
+                    if (frame != null)
+                        frames.add(frame);
+                    else
+                        break;
+                } catch (IOException e) {
+                    System.err.println("加载动画帧 " + animationPathPrefix + frameFileName + " 时出错: " + e.getMessage());
+                    break;
                 }
+                frameIndex++;
+            }
+            if (!frames.isEmpty()) {
+                loadedAnimations.put(animName, frames);
+                System.out.println("加载动画: " + animName + " (" + frames.size() + " 帧)");
+            } else {
+                System.out.println("未找到或加载失败动画: " + animName);
+            }
+        }
+        return loadedAnimations;
+    }
+
+    /**
+     * 从资源目录获取所有动画类型的列表
+     */
+    private List<String> listAnimationTypes(String petName) {
+        // 实际部署时，更稳妥的方式是从一个配置文件读取动画列表，而不是扫描目录
+        // 这里为了简单，继续使用扫描目录或硬编码列表的方式
+        String basePath = "client/resources/BA/" + petName;
+        File baseDir = new File(basePath);
+        if (baseDir.exists() && baseDir.isDirectory()) {
+            File[] subDirs = baseDir.listFiles(File::isDirectory);
+            if (subDirs != null) {
+                return Arrays.stream(subDirs).map(File::getName).collect(Collectors.toList());
+            }
+        }
+        System.err.println("警告：找不到宠物资源目录: " + basePath + "，将使用硬编码的回退列表");
+        return Arrays.asList("idle_normal", "happy", "pickup", "attack", "jump", "idle_happy", "idle_sad",
+                "idle_ignore", "headache", "knockdown", "skill");
+    }
+
+    /**
+     * 启动或恢复动画播放计时器
+     */
+    private void startAnimationTimer() {
+        if (animationTimer != null && animationTimer.isRunning())
+            return;
+        animationTimer = new Timer(1000 / 30, e -> {
+            if (currentAnimationName == null || !animations.containsKey(currentAnimationName))
+                return;
+            List<BufferedImage> currentFrames = animations.get(currentAnimationName);
+            if (currentFrames == null || currentFrames.isEmpty())
+                return;
+
+            currentFrameIndex = (currentFrameIndex + 1) % currentFrames.size();
+            BufferedImage frameToShow = currentFrames.get(currentFrameIndex);
+            imageLabel.setIcon(new ImageIcon(frameToShow.getScaledInstance(
+                    (int) (frameToShow.getWidth() * scale),
+                    (int) (frameToShow.getHeight() * scale),
+                    Image.SCALE_SMOOTH)));
+
+            if (currentFrameIndex == currentFrames.size() - 1 && !isLoopingAnimation(currentAnimationName)) {
+                playAnimation(getDefaultIdleAnimation(currentLikeability));
             }
         });
-        RightMenu();
+        animationTimer.start();
+    }
 
-        // 添加鼠标事件监听器 - 拖拽
-        addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
-            @Override
-            public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (mousePressStart == null)
-                    return;
-                int newX = e.getXOnScreen() - mousePressStart.x;
-                int newY = e.getYOnScreen() - mousePressStart.y;
-                setLocation(newX, newY);
+    /**
+     * 播放指定名称的动画
+     */
+    public void playAnimation(String animationName) {
+        if (animationName == null || animationName.equals(currentAnimationName))
+            return;
+        if (!animations.containsKey(animationName) || animations.get(animationName).isEmpty()) {
+            System.out.println("动画 " + animationName + " 尚未加载或为空，无法播放");
+            if (currentAnimationName == null || !currentAnimationName.startsWith("idle_")) {
+                playAnimation(getDefaultIdleAnimation(currentLikeability));
             }
-        });
+            return;
+        }
+        System.out.println("播放动画: " + animationName);
+        currentAnimationName = animationName;
+        currentFrameIndex = -1;
+        if (animationTimer != null && !animationTimer.isRunning()) {
+            animationTimer.start();
+        }
+    }
 
-        // 数据同步计时器
-        dataSyncTimer = new Timer(5000, evt -> syncDataWithServer());
-        dataSyncTimer.setInitialDelay(0); // 立即执行第一次
+    /**
+     * 判断动画是否需要循环播放
+     */
+    private boolean isLoopingAnimation(String animationName) {
+        return animationName != null && animationName.startsWith("idle_");
+    }
+
+    /**
+     * 启动周期性数据同步计时器
+     */
+    private void startDataSyncTimer() {
+        if (dataSyncTimer != null && dataSyncTimer.isRunning())
+            return;
+        dataSyncTimer = new Timer(5000, e -> syncData());
         dataSyncTimer.start();
+    }
 
-        // 随机移动计时器
-        // movementTimer = new Timer(10000, e -> decideToMove());
-        // movementTimer.start();
+    /**
+     * 从服务器异步获取并更新宠物数据
+     */
+    private void syncData() {
+        new SwingWorker<String[], Void>() {
+            @Override
+            protected String[] doInBackground() throws Exception {
+                return apiClient.getPetData();
+            }
 
+            @Override
+            protected void done() {
+                try {
+                    String[] fetchedData = get();
+                    if (fetchedData == null || fetchedData.length != 3) {
+                        System.err.println("同步失败：获取的数据格式无效");
+                        return;
+                    }
+                    int fetchedLikeability = Integer.parseInt(fetchedData[1]);
+                    String fetchedStatus = fetchedData[2];
+
+                    if (fetchedLikeability != currentLikeability) {
+                        String oldIdle = getDefaultIdleAnimation(currentLikeability);
+                        currentLikeability = fetchedLikeability;
+                        System.out.println("好感度更新为: " + currentLikeability);
+                        String newIdle = getDefaultIdleAnimation(currentLikeability);
+                        if (!oldIdle.equals(newIdle) && currentAnimationName.equals(oldIdle)) {
+                            playAnimation(newIdle);
+                        }
+                    }
+                    if (!fetchedStatus.equals(currentStatus)) {
+                        currentStatus = fetchedStatus;
+                        System.out.println("状态更新为: " + currentStatus);
+                    }
+                } catch (Exception e) {
+                    System.err.println("同步数据时出错: " + e.getMessage());
+                }
+            }
+        }.execute();
+    }
+
+    /**
+     * 初始化所有鼠标交互
+     */
+    private void setupInteraction() {
+        MyMouseAdapter mouseAdapter = new MyMouseAdapter();
+        addMouseListener(mouseAdapter);
+        addMouseMotionListener(mouseAdapter);
+        RightMenu();
     }
 
     /**
@@ -280,7 +434,6 @@ public class PetWindow extends JWindow {
 
         Menu.add(exitMenu);
 
-        // 右键菜单消耗逻辑
         Menu.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseExited(MouseEvent e) {
@@ -304,318 +457,65 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * 数据同步,定期获取服务器数据并更新UIdecideToMove
+     * 处理所有与鼠标相关的交互逻辑
      */
-    private void syncDataWithServer() {
-        new Thread(() -> {
-            String[] data = apiClient.getPetData();
-            if (data != null && data.length == 3) {
-                String nameFromServer = data[0];
-                int likeabilityFromServer = Integer.parseInt(data[1]); // 好感度
-                String statusFromServer = data[2]; // 状态
+    private class MyMouseAdapter extends MouseAdapter {
 
-                // 数据同步逻辑
-                if (likeabilityFromServer != currentLikeability || !statusFromServer.equals(currentStatus)) {
-                    System.out.println("数据同步：好感度 " + currentLikeability + " -> " + likeabilityFromServer +
-                            ", 状态 '" + currentStatus + "' -> '" + statusFromServer + "'");
-
-                    petName = nameFromServer;
-                    currentLikeability = likeabilityFromServer;
-                    currentStatus = statusFromServer;
-
-                    // 分线程通讯主线程
-                    SwingUtilities.invokeLater(() -> {
-                        // 防干扰逻辑
-                        if ("fainted".equals(currentStatus)) {
-                            playAnimation("faint");
-                        } else {
-                            if (!"pickup".equals(currentAnimationName) && !"happy".equals(currentAnimationName)) {
-                                playIdleWithLikeability();
-                            }
-                        }
-                    });
-                }
+        /**
+         * 处理右键点击
+         */
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            if (SwingUtilities.isRightMouseButton(e)) {
+                Menu.show(e.getComponent(), e.getX(), e.getY());
             }
-        }).start();
-    }
+        }
 
-    /**
-     * 加载所有动画资源
-     */
-    private void loadAnimations() {
-        System.out.println("===== 开始加载动画资源... =====");
-        String characterFolderName = "BA/seia";
+        /**
+         * 处理左键点击
+         */
+        @Override
+        public void mousePressed(MouseEvent e) {
+            if (SwingUtilities.isLeftMouseButton(e)) {
+                mousePressStart = e.getPoint(); 
 
-        // 所有动画
-        String[] animationNames = {
+                long currentTime = System.currentTimeMillis();
 
-                "idle_happy", "idle_normal", "idle_ignore", "idle_sad",
-                "pickup", "happy", "faint",
-                "walk_n", "walk_s", "walk_e", "walk_w", "walk_ne", "walk_nw", "walk_se", "walk_sw",
-                "attack", "jump", "knockdown", "skill"
-        };
-
-        // 逐个动画加载
-        for (String animationName : animationNames) {
-            List<BufferedImage> frames = new ArrayList<>();
-            int frameIndex = 0;
-            while (true) {
-                String fileName = String.format("%04d.png", frameIndex);
-                String framePath = characterFolderName + "/" + animationName + "/" + fileName;
-                URL frameUrl = getClass().getClassLoader().getResource(framePath);
-                if (frameUrl != null) {
-                    try {
-                        frames.add(ImageIO.read(frameUrl));
-                        frameIndex++;
-                    } catch (IOException e) {
-                        System.err.println("错误：无法读取图片 " + framePath);
-                        break;
-                    }
+                if (currentTime - lastClickTime >= clickCooldown) {
+                    playAnimation("happy");
+                    lastClickTime = currentTime;
                 } else {
-                    break;
+
+                    playAnimation("pickup");
                 }
             }
-            if (!frames.isEmpty()) {
-                System.out.println("--- 总结: 成功加载动画 '" + animationName + "' (" + frames.size() + " 帧) ---");
-                animations.put(animationName, frames);
-            } else {
-                System.out.println("--- 总结: 未能为 '" + animationName + "' 加载任何帧 ---");
-            }
-        }
-        System.out.println("\n===== 所有动画资源加载完毕 =====");
-    }
-
-    /**
-     * 根据好感度,播放不同的 idle 动画
-     */
-    private void playIdleWithLikeability() {
-        if (currentLikeability > 85) {
-            playAnimation("idle_happy");
-        } else if (currentLikeability > 60) {
-            playAnimation("idle_normal");
-        } else if (currentLikeability > 30) {
-            playAnimation("idle_ignore");
-        } else if (currentLikeability > 0) {
-            playAnimation("idle_sad");
-        }
-        // 如果好感度为0, dataSyncTimer 会自动切换到 faint
-    }
-
-    /**
-     * 播放指定动画
-     * * @param name 动画名称
-     */
-    public void playAnimation(String name) {
-        if (!animations.containsKey(name) || name.equals(currentAnimationName)) {
-            return;
-        }
-        if (animationTimer != null && animationTimer.isRunning()) {
-            animationTimer.stop();
         }
 
-        // 重置动画循环计数器
-        animationLoopCount = 0;
-
-        // 如果数据更新,则播放新数据对应的动画
-        currentAnimationName = name;
-        currentFrameIndex = 0; // 重置帧索引
-        animationTimer = new Timer(17, e -> { // 动画帧率 (毫秒)
-            int frameCount = animations.get(name).size();
-            if (frameCount == 0)
-                return;
-
-            // 记录更新前的帧, 用于判断循环
-            int oldFrameIndex = currentFrameIndex;
-            currentFrameIndex = (currentFrameIndex + 1) % frameCount;
-
-            // 如果帧索引变小了, 说明完成了一次循环
-            if (currentFrameIndex < oldFrameIndex) {
-                animationLoopCount++;
-            }
-
-            // 移动动画播放两次后自动停止
-            if (isMoving && currentAnimationName.startsWith("walk") && animationLoopCount >= 2) {
-                isMoving = false; // 结束移动状态
-                playIdleWithLikeability(); // 恢复待机
-                return;
-            }
-
-            // 一次性动画的处理
-            boolean isOneShotAnimation = "happy".equals(currentAnimationName) || "faint".equals(currentAnimationName);
-            if (isOneShotAnimation && animationLoopCount >= 1) {
-                playIdleWithLikeability();
-                return;
-            }
-
-            // 移动逻辑
-            if (isMoving) {
-                Point currentPos = getLocation();
-
-                // 检查是否已接近目标点
-                if (currentPos.distance(targetPosition) > 5) {
-                    int nextX = (int) (currentPos.x + currentVelocityX);
-                    int nextY = (int) (currentPos.y + currentVelocityY);
-                    setLocation(nextX, nextY);
-                } else {
-                    // 已到达目标点
-                    isMoving = false; // 结束移动状态
-                    setLocation(targetPosition); // 精准定位到目标
-                    playIdleWithLikeability(); // 恢复待机
+        /**
+         * 处理左键释放
+         */
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            if (SwingUtilities.isLeftMouseButton(e)) {
+                mousePressStart = null;
+                if ("pickup".equals(currentAnimationName)) {
+                    playAnimation(getDefaultIdleAnimation(currentLikeability));
                 }
             }
-
-            updatePetImage();
-        });
-        animationTimer.start();
-        updatePetImage();
-    }
-
-    /**
-     * 根据帧索引更新图片
-     */
-    private void updatePetImage() {
-        List<BufferedImage> frames = animations.get(currentAnimationName);
-        if (frames == null || frames.isEmpty())
-            return;
-
-        // BufferedImage currentFrame = frames.get(currentFrameIndex);
-        // imageLabel.setIcon(new ImageIcon(currentFrame));
-
-        // 调整窗口大小,适应帧图尺寸
-        // if (getWidth() != currentFrame.getWidth() || getHeight() !=
-        // currentFrame.getHeight()) {
-        // setSize(currentFrame.getWidth(), currentFrame.getHeight());
-        // }
-
-        BufferedImage originalFrame = frames.get(currentFrameIndex);
-
-        int newWidth = (int) (originalFrame.getWidth() * scale);
-        int newHeight = (int) (originalFrame.getHeight() * scale);
-
-        Image scaledImage = originalFrame.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
-
-        imageLabel.setIcon(new ImageIcon(scaledImage));
-
-        if (getWidth() != newWidth || getHeight() != newHeight) {
-            setSize(newWidth, newHeight);
         }
-    }
 
-    /**
-     * 检查像素是否透明
-     */
-    private boolean isPixelTransparent(int x, int y) {
-        List<BufferedImage> frames = animations.get(currentAnimationName);
-        if (frames == null || frames.isEmpty())
-            return true;
-
-        BufferedImage originalFrame = frames.get(currentFrameIndex);
-
-        // 比例缩放指针探测
-        int originalX = (int) (x / scale);
-        int originalY = (int) (y / scale);
-
-        if (originalX < 0 || originalX >= originalFrame.getWidth() || originalY < 0
-                || originalY >= originalFrame.getHeight()) {
-            return true;
+        /**
+         * 处理鼠标拖拽
+         */
+        @Override
+        public void mouseDragged(MouseEvent e) {
+            if (SwingUtilities.isLeftMouseButton(e) && mousePressStart != null
+                    && "pickup".equals(currentAnimationName)) {
+                Point newLocation = new Point(
+                        getLocation().x + e.getX() - mousePressStart.x,
+                        getLocation().y + e.getY() - mousePressStart.y);
+                setLocation(newLocation);
+            }
         }
-        int pixel = originalFrame.getRGB(originalX, originalY);
-        return ((pixel >> 24) & 0xff) == 0;
-    }
-
-    /**
-     * 决定是否要移动，以及移动到哪里
-     */
-    // private void decideToMove() {
-
-    // // 防干扰逻辑
-    // if (currentAnimationName == null || isMoving ||
-    // !currentAnimationName.startsWith("idle")) {
-    // return;
-    // }
-
-    // Random random = new Random();
-
-    // if (random.nextBoolean()) {
-    // System.out.println("开始移动。");
-
-    // // 双屏
-    // Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-
-    // // 计算可移动的边界（目标点的左上角坐标范围）
-    // int randomBoundX = screenSize.width - getWidth();
-    // int randomBoundY = screenSize.height - getHeight();
-
-    // // 只有在有移动空间时才进行
-    // if (randomBoundX > 0 && randomBoundY > 0) {
-    // int targetX = random.nextInt(randomBoundX);
-    // int targetY = random.nextInt(randomBoundY);
-
-    // targetPosition = new Point(targetX, targetY);
-
-    // // 开始执行移动
-    // // startMoving();
-    // } else {
-    // System.out.println("没有足够的空间移动。");
-    // }
-    // } else {
-    // System.out.println("保持原位不动");
-    // }
-    // }
-
-    /**
-     * 根据目标点，计算速度并开始播放移动动画
-     */
-    // private void startMoving() {
-    // isMoving = true; // 进入移动状态
-
-    // Point currentPos = getLocation();
-    // double distance = currentPos.distance(targetPosition);
-
-    // // 移动速度计算
-    // double standardDistance = 150.0;
-
-    // int animationFrames = animations.getOrDefault("walk_e", List.of()).size();
-    // if (animationFrames == 0)
-    // animationFrames = 60; // 防止除零错误
-
-    // double totalFramesToTarget = (distance / standardDistance) * animationFrames;
-
-    // currentVelocityX = (targetPosition.x - currentPos.x) / totalFramesToTarget;
-    // currentVelocityY = (targetPosition.y - currentPos.y) / totalFramesToTarget;
-
-    // // 根据速度方向，决定播放哪个走路动画
-    // double angle = Math.toDegrees(Math.atan2(-currentVelocityY,
-    // currentVelocityX));
-
-    // if (angle < 0) {
-    // angle += 360;
-    // }
-
-    // // 8 个方向
-    // String directionAnimation;
-    // if (angle >= 337.5 || angle < 22.5) {
-    // directionAnimation = "walk_e";
-    // } else if (angle >= 22.5 && angle < 67.5) {
-    // directionAnimation = "walk_ne";
-    // } else if (angle >= 67.5 && angle < 112.5) {
-    // directionAnimation = "walk_n";
-    // } else if (angle >= 112.5 && angle < 157.5) {
-    // directionAnimation = "walk_nw";
-    // } else if (angle >= 157.5 && angle < 202.5) {
-    // directionAnimation = "walk_w";
-    // } else if (angle >= 202.5 && angle < 247.5) {
-    // directionAnimation = "walk_sw";
-    // } else if (angle >= 247.5 && angle < 292.5) {
-    // directionAnimation = "walk_s";
-    // } else { // 292.5 to 337.5
-    // directionAnimation = "walk_se";
-    // }
-
-    // playAnimation(directionAnimation);
-    // }
-
-    public void showPet() {
-        SwingUtilities.invokeLater(() -> this.setVisible(true));
     }
 }
