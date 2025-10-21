@@ -58,10 +58,11 @@ public class DatabaseUtil {
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL UNIQUE," +
                 "status TEXT DEFAULT 'health'," +
-                "likeability INTEGER DEFAULT 100" +
+                "likeability INTEGER DEFAULT 100," +
+                "last_click_time BIGINT DEFAULT 0" +
                 ");";
 
-        String insertDefaultPetSql = "INSERT INTO pets (name, status, likeability) VALUES ('seia', 'health', 100);";
+        String insertDefaultPetSql = "INSERT INTO pets (name, status, likeability, last_click_time) VALUES ('seia', 'health', 100, 0);";
         String insertDefaultUserSql = "INSERT INTO users (username) VALUES ('testuser');";
 
         try (Connection cc = getConnection();

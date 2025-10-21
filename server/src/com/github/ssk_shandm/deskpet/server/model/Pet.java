@@ -6,6 +6,7 @@ public class Pet {
     private String name;
     private String status;
     private int likeability;
+    private long lastClickTime;
 
     public Pet() {
     }
@@ -15,13 +16,14 @@ public class Pet {
      * @param name   名字
      * @param likeability 好感度
      * @param status 状态
+     * @param lastClickTime 上次点击时间
      */
-    public Pet(int id, String name, String status, int likeability) {
+    public Pet(int id, String name, String status, int likeability, long lastClickTime) {
         this.id = id;
         this.name = name;
         this.status = status;
         this.likeability = likeability;
-
+        this.lastClickTime = lastClickTime;
     }
 
     public int getId() {
@@ -54,5 +56,13 @@ public class Pet {
     }
     public void setLikeability(int likeability) {
         this.likeability = likeability;
+    }
+
+    public long getLastClickTime() {
+        return lastClickTime;
+    }
+
+    public void setLastClickTime(long lastClickTime) {
+        this.lastClickTime = lastClickTime;
     }
 }

@@ -19,7 +19,7 @@ public class PetService {
 
         if (pet == null) {
             System.out.println("数据库中没有宠物，正在创建新的宠物...");
-            pet = new Pet(1,  "seia", "health", 100); // 创建一个默认宠物
+            pet = new Pet(1,  "seia", "health", 100,); // 创建一个默认宠物
             petDao.createPet(pet);
             System.out.println("新宠物创建成功！");
         }

@@ -44,25 +44,19 @@ public class ApiClient {
     public String[] getPetData() {
         String response = sendRequest("GET");
         if (response != null && response.startsWith("PET_DATA:")) {
-            // "PET_DATA:100,health" -> "100,health" -> ["100", "health"]
             return response.substring("PET_DATA:".length()).split(",");
         }
         return null;
     }
 
     /**
-     * 请求服务器更新好感度
+     * 请求服务器处理点击
      */
-    public int updateLikeability(int change) {
-        String command = "UPDATE:" + change;
-        String response = sendRequest(command);
-        if (response != null && response.startsWith("UPDATE:")) {
-            try {
-                return Integer.parseInt(response.substring("UPDATE:".length()));
-            } catch (NumberFormatException e) {
-                return -1;
-            }
+    public String[] sendClick() {
+        String response = sendRequest("CLICK");
+        if (response != null && response.startsWith("CLICK_RESPONSE:")) {
+            return response.substring("CLICK_RESPONSE:".length()).split(",");
         }
-        return -1;
+        return null;
     }
 }

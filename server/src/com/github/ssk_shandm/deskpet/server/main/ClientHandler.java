@@ -11,6 +11,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 public class ClientHandler implements Runnable {
 
@@ -68,46 +71,24 @@ public class ClientHandler implements Runnable {
         switch (command) {
             case "GET":
                 Pet pet = petService.getOrCreatePet();
-                return "PET_DATA:" + pet.getName() + "," + pet.getLikeability() + "," + pet.getStatus();
+                return "PET_DATA:" + pet.getName() + "," + pet.getLikeability() + "," + pet.getStatus() + ","
+                        + pet.getLastClickTime();
 
-            case "UPDATE":
-                int change = Integer.parseInt(parts[1]); // 字符串转化(改变值)
-                Pet currentPet = petService.getOrCreatePet();
+            case "CLICK":
+                Pet petOnClick = petService.getOrCreatePet();
+                boolean isOnCooldown = isClickOnCooldown(petOnClick.getLastClickTime());
 
-                // 调试：打印收到的请求和当前状态
-                System.out.println("[ClientHandler Test] Received UPDATE request. Change=" + change
-                        + ", Current Pet State: ID=" + currentPet.getId() + ", Likeability="
-                        + currentPet.getLikeability() + ", Status=" + currentPet.getStatus());
-                System.out.flush();
-
-                int newLikeability = currentPet.getLikeability() + change;
-
-                // 好感度范围控制
-                if (newLikeability > 100)
-                    newLikeability = 100;
-                if (newLikeability < 0)
-                    newLikeability = 0;
-
-                currentPet.setLikeability(newLikeability);
-
-                // 状态变更逻辑
-                if (newLikeability == 0) {
-                    currentPet.setStatus("fainted");
-                } else {
-                    if ("fainted".equals(currentPet.getStatus())) {
-                        currentPet.setStatus("health");
-                    }
+                if (!isOnCooldown) {
+                    int newLikeability = petOnClick.getLikeability() + 1;
+                    if (newLikeability > 100)
+                        newLikeability = 100;
+                    petOnClick.setLikeability(newLikeability);
+                    petOnClick.setLastClickTime(System.currentTimeMillis());
+                    petService.updatePet(petOnClick);
                 }
 
-                // 调试：打印更新后的宠物状态
-                System.out.println(
-                        "[ClientHandler Test] Calling petService.updatePet with Pet State: ID=" + currentPet.getId() +
-                                ", Likeability=" + currentPet.getLikeability() +
-                                ", Status=" + currentPet.getStatus());
-                System.out.flush();
+                return "CLICK_RESPONSE:" + isOnCooldown + "," + petOnClick.getLikeability();
 
-                petService.updatePet(currentPet);
-                return "UPDATE:" + currentPet.getLikeability();
         }
 
         // // // 登录
@@ -138,7 +119,30 @@ public class ClientHandler implements Runnable {
 
         // default:
         return "ERROR:未知的命令";
+    }
 
+    private boolean isClickOnCooldown(long lastClickTime) {
+        if (lastClickTime == 0) {
+            return false;
+        }
+
+        // 获取当前时间和上次点击的时间
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+        ZonedDateTime lastClickDateTime = ZonedDateTime.ofInstant(
+                java.time.Instant.ofEpochMilli(lastClickTime),
+                ZoneId.systemDefault());
+
+        // 刷新时间定义
+        ZonedDateTime todayAt4AM = now.with(LocalTime.of(4, 0, 0, 0));
+
+        ZonedDateTime petDayStart;
+        if (now.isBefore(todayAt4AM)) {
+            petDayStart = todayAt4AM.minusDays(1);
+        } else {
+            petDayStart = todayAt4AM;
+        }
+
+        return !lastClickDateTime.isBefore(petDayStart);
     }
 
 }

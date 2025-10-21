@@ -14,6 +14,9 @@ import java.io.File;
 import java.io.IOException;
 
 import java.net.URL;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -24,7 +27,7 @@ import java.util.stream.Collectors;
 
 public class PetWindow extends JWindow {
 
-    private final double scale = 0.7;
+    private final double scale = 0.5;
     private final Map<String, List<BufferedImage>> animations = new HashMap<>();
     private final JLabel imageLabel = new JLabel();
     private Timer animationTimer;
@@ -36,8 +39,9 @@ public class PetWindow extends JWindow {
     private JMenuItem exitMenu;
     private JMenuItem cheatlikeabilityItem;
     private JMenuItem hammerItem;
-    private final long clickCooldown = 50000; // ms
-    private long lastClickTime = 0;
+    private JMenuItem pistonItem;
+    // 记录上次点击时间戳
+    // private long lastClickTime = 0;
 
     private final ApiClient apiClient = new ApiClient();
     private String petName;
@@ -49,6 +53,10 @@ public class PetWindow extends JWindow {
     private boolean isHammerMode = false;
     private final Cursor hammerCursor = createHammerCursor();
     private final Cursor defaultCursor = Cursor.getDefaultCursor();
+
+    // 推动
+    private boolean isPistonMode = false;
+    private final Cursor PistonCursor = createPistonCursor();
 
     /**
      * 入口
@@ -168,9 +176,13 @@ public class PetWindow extends JWindow {
      * 根据好感度获取对应的idle动画名称
      */
     private String getDefaultIdleAnimation(int favorability) {
-        if (favorability > 70)
+        if (favorability > 85)
             return "idle_happy";
-        if (favorability < 30)
+        if (favorability > 60 || favorability < 84)
+            return "idle_normal";
+        if (favorability > 30 || favorability < 59)
+            return "idle_ignore";
+        if (favorability > 0 || favorability < 29)
             return "idle_sad";
         return "idle_normal";
     }
@@ -433,10 +445,17 @@ public class PetWindow extends JWindow {
         Menu.add(cheatlikeabilityItem);
 
         // 锤子
-        hammerItem = new JMenuItem("🔨敲击!");
+        hammerItem = new JMenuItem("敲击!");
         hammerItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         hammerItem.addActionListener(e -> toggleHammerMode());
         Menu.add(hammerItem);
+
+        // 轻推
+        pistonItem = new JMenuItem("我推!");
+        pistonItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        pistonItem.addActionListener(e -> togglePistonMode());
+        Menu.add(
+                pistonItem);
 
         // 退出
         exitMenu = new JMenuItem("退出");
@@ -475,16 +494,13 @@ public class PetWindow extends JWindow {
      */
     private Cursor createHammerCursor() {
         try {
-            URL imageUrl = getClass().getResource("tools/hammer.png");
+            URL imageUrl = getClass().getResource("/tools/hammer.png");
 
             Image cursorImage = ImageIO.read(imageUrl);
             Point hotspot = new Point(8, 8);
             return Toolkit.getDefaultToolkit().createCustomCursor(cursorImage, hotspot, "hammer");
         } catch (IOException e) {
             System.err.println("加载 'hammer.png' 光标失败，使用备用光标: " + e.getMessage());
-            return Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR);
-        } catch (Exception e) {
-            System.err.println("创建光标时发生未知错误: " + e.getMessage());
             return Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR);
         }
     }
@@ -501,6 +517,37 @@ public class PetWindow extends JWindow {
         } else {
             setCursor(defaultCursor);
             hammerItem.setText("锤子");
+        }
+    }
+
+    /**
+     * 创建活塞
+     */
+    private Cursor createPistonCursor() {
+        try {
+            URL imageUrl = getClass().getResource("/tools/piston.gif");
+
+            Image cursorImage = ImageIO.read(imageUrl);
+            Point hotspot = new Point(8, 8);
+            return Toolkit.getDefaultToolkit().createCustomCursor(cursorImage, hotspot, "piston");
+        } catch (IOException e) {
+            System.err.println("加载 'pison.png' 光标失败，使用备用光标: " + e.getMessage());
+            return Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR);
+        }
+    }
+
+    /**
+     * 切换活塞模式
+     */
+    private void togglePistonMode() {
+        isPistonMode = !isPistonMode;
+
+        if (isPistonMode) {
+            setCursor(PistonCursor);
+            pistonItem.setText("取消推动");
+        } else {
+            setCursor(defaultCursor);
+            pistonItem.setText("我推!");
         }
     }
 
@@ -546,16 +593,25 @@ public class PetWindow extends JWindow {
 
                     toggleHammerMode();
 
+                } else if (isPistonMode) {
+                    System.out.println("我推！");
+                    playAnimation("knockdown");
+
+                    int decreaseAmount = -10;
+                    new Thread(() -> {
+                        System.out.println("好感度变化: " + decreaseAmount);
+                        apiClient.updateLikeability(decreaseAmount);
+                    }).start();
+
+                    togglePistonMode();
                 } else {
                     mousePressStart = e.getPoint();
 
-                    long currentTime = System.currentTimeMillis();
-
-                    if (currentTime - lastClickTime >= clickCooldown) {
-                        playAnimation("happy");
-                        lastClickTime = currentTime;
-                    } else {
+                    if (isClickOnCooldown()) {
                         playAnimation("pickup");
+                    } else {
+                        playAnimation("happy");
+                        lastClickTime = System.currentTimeMillis();
                     }
                 }
             }
