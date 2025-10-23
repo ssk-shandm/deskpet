@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 负责处理所有与服务器的通信
@@ -41,10 +43,21 @@ public class ApiClient {
     /**
      * 从服务器获取宠物数据
      */
-    public String[] getPetData() {
+    public Map<String, String> getPetData() {
         String response = sendRequest("GET");
         if (response != null && response.startsWith("PET_DATA:")) {
-            return response.substring("PET_DATA:".length()).split(",");
+            try {
+                String[] data = response.substring("PET_DATA:".length()).split(",");
+                if (data.length >= 3) { 
+                    Map<String, String> petInfo = new HashMap<>();
+                    petInfo.put("name", data[0]);
+                    petInfo.put("likeability", data[1]);
+                    petInfo.put("lastClickTime", data[2]);
+                    return petInfo;
+                }
+            } catch (Exception e) {
+                System.err.println("解析宠物数据时出错: " + response);
+            }
         }
         return null;
     }
@@ -52,11 +65,67 @@ public class ApiClient {
     /**
      * 请求服务器处理点击
      */
-    public String[] sendClick() {
+    public Map<String, String> sendClick() {
         String response = sendRequest("CLICK");
-        if (response != null && response.startsWith("CLICK_RESPONSE:")) {
-            return response.substring("CLICK_RESPONSE:".length()).split(",");
+        Map<String, String> result = new HashMap<>();
+
+        if (response == null || response.equals("ERROR:CONNECTION_FAILED")) {
+            result.put("status", "ERROR");
+            result.put("message", "无法连接到服务器");
+            return result;
         }
-        return null;
+
+        if (response.startsWith("CLICK_RESPONSE:")) {
+            String[] parts = response.substring("CLICK_RESPONSE:".length()).split(",");
+            result.put("status", parts[0]); // SUCCESS, COOLDOWN, ERROR
+
+            if ("SUCCESS".equals(parts[0]) && parts.length >= 3) {
+                result.put("likeability", parts[1]);
+                result.put("lastClickTime", parts[2]);
+            } else if ("COOLDOWN".equals(parts[0]) && parts.length >= 2) {
+                result.put("remainingTime", parts[1]);
+            } else if ("ERROR".equals(parts[0]) && parts.length >= 2) {
+                result.put("message", parts[1]);
+            }
+        } else if (response.startsWith("ERROR:")) {
+            result.put("status", "ERROR");
+            result.put("message", response.substring("ERROR:".length()));
+        } else {
+            result.put("status", "ERROR");
+            result.put("message", "收到服务器未知响应: " + response);
+        }
+        return result;
+    }
+
+    /**
+     * 向服务器发送好感度变化请求
+     */
+    public Map<String, String> updateLikeability(int changeAmount) {
+        String request = "UPDATE_LIKEABILITY:" + changeAmount;
+        String response = sendRequest(request);
+        Map<String, String> result = new HashMap<>();
+
+        if (response == null || response.equals("ERROR:CONNECTION_FAILED")) {
+            result.put("status", "ERROR");
+            result.put("message", "无法连接到服务器");
+            return result;
+        }
+
+        if (response.startsWith("UPDATE_LIKEABILITY_RESPONSE:")) {
+            String[] parts = response.substring("UPDATE_LIKEABILITY_RESPONSE:".length()).split(",");
+            result.put("status", parts[0]); // SUCCESS or ERROR
+            if ("SUCCESS".equals(parts[0]) && parts.length >= 2) {
+                result.put("newLikeability", parts[1]);
+            } else if ("ERROR".equals(parts[0]) && parts.length >= 2) {
+                result.put("message", parts[1]);
+            }
+        } else if (response.startsWith("ERROR:")) {
+            result.put("status", "ERROR");
+            result.put("message", response.substring("ERROR:".length()));
+        } else {
+            result.put("status", "ERROR");
+            result.put("message", "收到服务器未知响应: " + response);
+        }
+        return result;
     }
 }
