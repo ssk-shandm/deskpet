@@ -37,7 +37,7 @@ public class PetWindow extends JWindow {
     private static final Logger logger = Logger.getLogger(PetWindow.class.getName());
     private final double scale = 0.5; // 图片缩放比例
     private final int PET_VISUAL_TOP_OFFSET = 120; // 气泡偏移量
-    private final Map<String, List<BufferedImage>> animations = new HashMap<>();
+    private final Map<String, List<BufferedImage>> animations = new java.util.concurrent.ConcurrentHashMap<>();
     private final JLabel imageLabel = new JLabel();
     private Timer animationTimer;
     private String currentAnimationName;
@@ -52,23 +52,23 @@ public class PetWindow extends JWindow {
     private JMenuItem pistonMenuItem;
     private JMenuItem MoveFileMenuItem;
     private JMenuItem specialActionMenuItem;
-    // (新增) 语音和气泡相关
-    private JMenu voiceOptionsMenu; // (新增) 语音选项
-    private JCheckBoxMenuItem muteMenuItem; // (新增) 是否静音
-    private JMenu volumeSubMenu; // (新增) 调整音量子菜单
-    private JCheckBoxMenuItem showBubbleMenuItem; // (新增) 是否显示气泡
-    private JMenu languageSubMenu; // (新增) 显示语言 (子菜单)
+    // 语音和气泡相关
+    private JMenu voiceOptionsMenu; // 语音选项
+    private JCheckBoxMenuItem muteMenuItem; // 是否静音
+    private JMenu volumeSubMenu; // 调整音量子菜单
+    private JCheckBoxMenuItem showBubbleMenuItem; // 是否显示气泡
+    private JMenu languageSubMenu; // 显示语言 (子菜单)
 
-    // (新增) 语音和气泡的状态
+    // 语音和气泡的状态
     private boolean isMuted = false;
-    private float currentVolume = 0.8f; // 0.0f (静音) 到 1.0f (最大)
-    private boolean isBubbleDisabled = false; // (新增) 气泡是否被禁用
+    private float currentVolume = 0.3f; // 0.0f (静音) 到0f (最大)
+    private boolean isBubbleDisabled = false; // 气泡是否被禁用
 
-    // (新增) 气泡窗口和音频管理器 (我们稍后会创建这些类)
+    // 气泡窗口和音频管理器
     private SpeechBubble speechBubble;
     private final AudioManager audioManager;
 
-    private Timer autoSpeechTimer; // (新增) 自动说话计时器
+    private Timer autoSpeechTimer; // 自动说话计时器
 
     private Timer specialActionCooldownTimer;
 
@@ -79,7 +79,7 @@ public class PetWindow extends JWindow {
     private volatile boolean isPistonMode = false;
     private volatile boolean isSpecialActionOnCooldown = false;
 
-    // (新增) 特殊互动的常量
+    // 特殊互动的常量
     private static final int SPECIAL_ACTION_COOLDOWN_MS = 60000; // 冷却时间 (60000 毫秒 = 60 秒)
     private static final String SPECIAL_ACTION_ANIMATION = "attack";
     private static final int SPECIAL_ACTION_LIKEABILITY_GAIN = 10; // 每次互动增加的好感度
@@ -90,51 +90,55 @@ public class PetWindow extends JWindow {
     private String currentStatus = "health"; // 默认值，会被服务器数据覆盖
     private long lastClickTimeFromServer = 0; // 存储从服务器获取的上次点击时间
 
+    private final java.util.Set<String> eventOnlyKeys = java.util.Set.of(
+            "ch0070_tactic_defeat_1",
+            "ch0070_tactic_defeat_2");
+
     public PetWindow() {
-        // --- 窗口基础设置 ---
+        // 窗口基础设置
         setAlwaysOnTop(true);
         setBackground(new Color(0, 0, 0, 0)); // 设置背景透明
         setLayout(new BorderLayout());
         add(imageLabel, BorderLayout.CENTER);
 
-        // --- 设置初始加载状态 ---
+        // 设置初始加载状态
         imageLabel.setText("加载中...");
         imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         setSize(150, 50); // 设置一个临时的加载窗口大小
         setLocationRelativeTo(null); // 窗口居中显示
         setVisible(true);
 
-        // --- (新增) 在此处调用 ---
-        createCursors(); // <--- 添加这一行来初始化光标
+        // 在此处调用
+        createCursors(); // 添加这一行来初始化光标
 
-        // (新增) 初始化音频和气泡组件
+        // 初始化音频和气泡组件
         this.audioManager = new AudioManager();
 
-        // (修改) 显式传递 PetWindow 自己的、能工作的 GraphicsConfiguration
+        // 显式传递 PetWindow 自己的、能工作的 GraphicsConfiguration
         this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
 
-        // (新增) 初始化自动说话计时器
+        // 初始化自动说话计时器
         // 2 分钟 = 120,000 毫秒
         this.autoSpeechTimer = new Timer(120000, e -> sayRandomly());
         this.autoSpeechTimer.setRepeats(true); // 确保它重复执行
 
-        // --- 加载资源和初始化 (非数据依赖) ---
+        // 加载资源和初始化 (非数据依赖)
         createContextMenu(); // 创建右键菜单
         initListeners(); // 初始化事件监听器 (菜单项和鼠标事件)
 
-        // --- 异步加载数据和动画 ---
+        // 异步加载数据和动画
         startLoadingProcess();
 
     }
 
     /**
      * 启动异步加载流程：
-     * 1. 后台线程获取初始宠物数据 (petName, likeability)
-     * 2. 获取数据后，在 EDT 启动 SwingWorker (AnimationLoaderWorker)
-     * 3. SwingWorker 负责加载动画并显示宠物
+     * 后台线程获取初始宠物数据 (petName, likeability)
+     * 获取数据后，在 EDT 启动 SwingWorker (AnimationLoaderWorker)
+     * SwingWorker 负责加载动画并显示宠物
      */
     private void startLoadingProcess() {
-        new Thread(() -> { // 1. 使用后台线程避免阻塞 UI
+        new Thread(() -> { // 使用后台线程避免阻塞 UI
             logger.info("正在从服务器加载初始宠物数据...");
             Map<String, String> petData = apiClient.getPetData();
 
@@ -156,9 +160,9 @@ public class PetWindow extends JWindow {
                 // petName 和 currentLikeability 将使用默认值
             }
 
-            // 2. 获取数据后，切换回 EDT 启动 SwingWorker
+            // 获取数据后，切换回 EDT 启动 SwingWorker
             SwingUtilities.invokeLater(() -> {
-                // 3. 启动动画加载器
+                // 启动动画加载器
                 AnimationLoaderWorker loader = new AnimationLoaderWorker(this.petName, this.currentLikeability);
                 loader.execute();
             });
@@ -254,7 +258,6 @@ public class PetWindow extends JWindow {
     // }
 
     /**
-     * (来自你的逻辑)
      * 加载优先动画
      */
     private Map<String, List<BufferedImage>> loadPriorityAnimations(String petName, int favorability) {
@@ -270,7 +273,6 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (新方法 - 从配置文件加载)
      * 返回所有已知的动画类型名称列表
      * * @return 动画名称列表
      */
@@ -313,7 +315,7 @@ public class PetWindow extends JWindow {
             logger.log(Level.SEVERE, "读取 " + resourcePath + " 配置文件时出错", e);
         }
 
-        // --- 加载失败 ---
+        // 加载失败
         // 如果 try 块中因为任何原因（找不到文件、IO 异常、键不存在）失败了，
         // 就返回硬编码的默认列表以确保程序能继续运行。
         logger.warning("将使用硬编码的默认动画列表。");
@@ -321,71 +323,83 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (新方法 - 逻辑来自原始的 loadAnimations)
-     * 加载指定名称列表的动画帧并进行缩放
+     * (新增) 专用于加载单个动画资源，供 loadSpecificAnimations 和 SwingWorker 调用
+     * * @param petName 宠物名称 (用于路径)
      * 
-     * @param petName        宠物名称 (用于构建路径)
+     * @param animationName 要加载的动画名称
+     * @return 加载到的帧列表，如果失败则返回 null
+     */
+    private List<BufferedImage> loadAnimationFrames(String petName, String animationName) {
+        String basePath = "/mod/BA/" + petName + "/";
+        List<BufferedImage> frames = new ArrayList<>();
+        URL dirUrl = getClass().getResource(basePath + animationName);
+
+        if (dirUrl != null) {
+            try {
+                int frameIndex = 0;
+                while (true) {
+                    String frameFileName = String.format("%s%s/%04d.png", basePath, animationName, frameIndex);
+                    URL frameUrl = getClass().getResource(frameFileName);
+                    if (frameUrl == null) {
+                        if (frameIndex == 0) {
+                            logger.warning("找不到动画 '" + animationName + "' 的第一帧: " + frameFileName);
+                        }
+                        break;
+                    }
+
+                    BufferedImage originalImage = ImageIO.read(frameUrl);
+                    if (originalImage != null) {
+                        // 缩放图片
+                        int newWidth = (int) (originalImage.getWidth() * scale);
+                        int newHeight = (int) (originalImage.getHeight() * scale);
+                        // 确保宽高至少为 1
+                        newWidth = Math.max(1, newWidth);
+                        newHeight = Math.max(1, newHeight);
+
+                        Image scaledImage = originalImage.getScaledInstance(newWidth, newHeight,
+                                Image.SCALE_SMOOTH);
+                        BufferedImage resizedImage = new BufferedImage(newWidth, newHeight,
+                                BufferedImage.TYPE_INT_ARGB);
+                        Graphics2D g2d = resizedImage.createGraphics();
+                        g2d.drawImage(scaledImage, 0, 0, null);
+                        g2d.dispose();
+                        frames.add(resizedImage);
+                    } else {
+                        logger.warning("无法读取动画帧: " + frameFileName);
+                    }
+                    frameIndex++;
+                }
+            } catch (IOException e) {
+                logger.log(Level.SEVERE, "加载动画 '" + animationName + "' 时出错", e);
+            }
+        } else {
+            logger.warning("找不到动画资源目录: " + basePath + animationName);
+        }
+
+        if (!frames.isEmpty()) {
+            logger.info("成功加载动画 '" + animationName + "' (" + frames.size() + " 帧)");
+            return frames;
+        } else {
+            logger.warning("动画 '" + animationName + "' 加载失败，帧列表为空或找不到资源。");
+            return null; // 返回 null 表示失败
+        }
+    }
+
+    /**
+     * 加载指定名称列表的动画帧并进行缩放 (已修改为使用 loadAnimationFrames)
+     * * @param petName 宠物名称 (用于构建路径)
+     * 
      * @param animationNames 要加载的动画名称列表
      * @return 加载到的动画 Map
      */
     private Map<String, List<BufferedImage>> loadSpecificAnimations(String petName, List<String> animationNames) {
         Map<String, List<BufferedImage>> loadedAnims = new HashMap<>();
 
-        // 注意：这里假设路径是 /BA/{petName}/
-        // 原始代码是 /BA/seia/。如果 petName 不是 "seia"，这里需要正确
-        String basePath = "/mod/BA/" + petName + "/";
-
+        // (修改) 循环并调用新方法
         for (String name : animationNames) {
-            List<BufferedImage> frames = new ArrayList<>();
-            URL dirUrl = getClass().getResource(basePath + name); // 检查目录是否存在
-
-            if (dirUrl != null) {
-                try {
-                    int frameIndex = 0;
-                    while (true) {
-                        String frameFileName = String.format("%s%s/%04d.png", basePath, name, frameIndex);
-                        URL frameUrl = getClass().getResource(frameFileName);
-                        if (frameUrl == null) {
-                            if (frameIndex == 0) { // 如果连第一帧都找不到
-                                logger.warning("找不到动画 '" + name + "' 的第一帧: " + frameFileName);
-                            }
-                            break; // 找不到更多帧了
-                        }
-
-                        BufferedImage originalImage = ImageIO.read(frameUrl);
-                        if (originalImage != null) {
-                            // 缩放图片
-                            int newWidth = (int) (originalImage.getWidth() * scale);
-                            int newHeight = (int) (originalImage.getHeight() * scale);
-                            // 确保宽高至少为 1
-                            newWidth = Math.max(1, newWidth);
-                            newHeight = Math.max(1, newHeight);
-
-                            Image scaledImage = originalImage.getScaledInstance(newWidth, newHeight,
-                                    Image.SCALE_SMOOTH);
-                            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight,
-                                    BufferedImage.TYPE_INT_ARGB);
-                            Graphics2D g2d = resizedImage.createGraphics();
-                            g2d.drawImage(scaledImage, 0, 0, null);
-                            g2d.dispose();
-                            frames.add(resizedImage);
-                        } else {
-                            logger.warning("无法读取动画帧: " + frameFileName);
-                        }
-                        frameIndex++;
-                    }
-                } catch (IOException e) {
-                    logger.log(Level.SEVERE, "加载动画 '" + name + "' 时出错", e);
-                }
-            } else {
-                logger.warning("找不到动画资源目录: " + basePath + name);
-            }
-
-            if (!frames.isEmpty()) {
+            List<BufferedImage> frames = loadAnimationFrames(petName, name);
+            if (frames != null) { // (loadAnimationFrames 已经处理了日志)
                 loadedAnims.put(name, frames);
-                logger.info("成功加载动画 '" + name + "' (" + frames.size() + " 帧)");
-            } else {
-                logger.warning("动画 '" + name + "' 加载失败，帧列表为空或找不到资源。");
             }
         }
 
@@ -398,14 +412,14 @@ public class PetWindow extends JWindow {
     private void createContextMenu() {
         contextMenu = new JPopupMenu(); // 你的 'Menu'
 
-        // --- 信息显示 (来自你的逻辑) ---
+        // 信息显示
         final JMenuItem infoItem = new JMenuItem();
         infoItem.setEnabled(false);
         infoItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         contextMenu.add(infoItem);
         contextMenu.addSeparator();
 
-        // --- 动态信息更新 (来自你的逻辑) ---
+        // 动态信息更新
         contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
@@ -426,7 +440,7 @@ public class PetWindow extends JWindow {
             }
         });
 
-        // --- 好感度修改 (逻辑合并) ---
+        // 好感度修改 (逻辑合并)
         cheatLikeabilityItem = new JMenuItem("likeability test:"); // 你的 'cheatlikeabilityItem'
         cheatLikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); // 你的样式
         cheatLikeabilityItem.setBackground(contextMenu.getBackground()); // 你的样式
@@ -484,13 +498,13 @@ public class PetWindow extends JWindow {
         });
         contextMenu.add(specialActionMenuItem);
 
-        // --- 锤子 (来自你的逻辑) ---
+        // 锤子
         hammerMenuItem = new JMenuItem("敲击!"); // 你的 'hammerItem'
         hammerMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         hammerMenuItem.addActionListener(e -> toggleHammerMode()); // 你的监听器
         contextMenu.add(hammerMenuItem);
 
-        // --- 轻推 (来自你的逻辑) ---
+        // 轻推
         pistonMenuItem = new JMenuItem("我推!"); // 你的 'pistonItem'
         pistonMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         pistonMenuItem.addActionListener(e -> togglePistonMode()); // 你的监听器
@@ -498,11 +512,11 @@ public class PetWindow extends JWindow {
 
         contextMenu.addSeparator();
 
-        // --- (新增) 语音选项 ---
+        // 语音选项
         voiceOptionsMenu = new JMenu("语音选项");
         voiceOptionsMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
 
-        // 1. 是否静音
+        // 是否静音
         muteMenuItem = new JCheckBoxMenuItem("静音");
         muteMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         muteMenuItem.setSelected(isMuted);
@@ -514,11 +528,11 @@ public class PetWindow extends JWindow {
         });
         voiceOptionsMenu.add(muteMenuItem);
 
-        // 2. 调整音量 (子菜单滑动条)
+        // 调整音量 (子菜单滑动条)
         volumeSubMenu = new JMenu("调整音量");
         volumeSubMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
 
-        // (新增) 创建一个 JSlider 滑动条
+        // 创建一个 JSlider 滑动条
         JSlider volumeSlider = new JSlider(0, 100, (int) (currentVolume * 100));
         volumeSlider.setFont(new Font("Microsoft YaHei", Font.PLAIN, 10)); // 菜单里的字体小一点
         volumeSlider.setPreferredSize(new Dimension(150, 45)); // 给滑动条一个合适的大小
@@ -526,30 +540,30 @@ public class PetWindow extends JWindow {
         volumeSlider.setPaintTicks(true); // 显示刻度
         volumeSlider.setPaintLabels(true); // 显示 "0", "50", "100" 标签
 
-        // (关键) 添加监听器, 实时响应拖动
+        // 添加监听器, 实时响应拖动
         volumeSlider.addChangeListener(e -> {
             int volumePercent = volumeSlider.getValue();
 
             // 检查音量是否真的改变了, 避免在相同值上重复设置
             if (volumePercent != (int) (this.currentVolume * 100)) {
 
-                // 将 0-100 转换为 0.0f - 1.0f
+                // 将 0-100 转换为 0.0f -0f
                 this.currentVolume = volumePercent / 100.0f;
 
-                // (重要) 将音量设置同步给音频管理器
+                // 将音量设置同步给音频管理器
                 audioManager.setVolume(this.currentVolume);
 
                 logger.info("音量通过滑动条设置为: " + volumePercent + "%");
             }
         });
 
-        // (修改) 将滑动条添加到 *子菜单*
+        // 将滑动条添加到 *子菜单*
         volumeSubMenu.add(volumeSlider);
 
-        // (修改) 将子菜单添加到 *主菜单*
+        // 将子菜单添加到 *主菜单*
         voiceOptionsMenu.add(volumeSubMenu);
 
-        // 3. (修改) 是否显示气泡
+        // 是否显示气泡
         showBubbleMenuItem = new JCheckBoxMenuItem("显示气泡");
         showBubbleMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         showBubbleMenuItem.setSelected(!isBubbleDisabled); // 默认选中 (显示)
@@ -563,11 +577,11 @@ public class PetWindow extends JWindow {
         });
         voiceOptionsMenu.add(showBubbleMenuItem);
 
-        // 4. 显示语言 (作为子菜单)
+        // 显示语言 (作为子菜单)
         languageSubMenu = new JMenu("显示语言");
         languageSubMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
 
-        // (示例) 添加语言选项
+        // 添加语言选项
         ButtonGroup langGroup = new ButtonGroup();
         JRadioButtonMenuItem langChinese = new JRadioButtonMenuItem("中文 (简体)");
         langChinese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
@@ -582,7 +596,7 @@ public class PetWindow extends JWindow {
         langJapanese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         langJapanese.addActionListener(e -> logger.info("语言切换到: 日本語"));
 
-        // (重要) ButtonGroup 确保一次只能选一个
+        // ButtonGroup 确保一次只能选一个
         langGroup.add(langChinese);
         langGroup.add(langEnglish);
         langGroup.add(langJapanese);
@@ -593,12 +607,12 @@ public class PetWindow extends JWindow {
 
         voiceOptionsMenu.add(languageSubMenu);
 
-        // (新增) 将新主菜单添加到右键菜单
+        // 将新主菜单添加到右键菜单
         contextMenu.add(voiceOptionsMenu);
 
         contextMenu.addSeparator(); // 我加了一个分隔符，让退出更清晰
 
-        // --- 退出 (来自你的逻辑) ---
+        // 退出
         exitMenuItem = new JMenuItem("退出"); // 你的 'exitMenu'
         exitMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); // (为你添加了字体统一样式)
         exitMenuItem.addActionListener(e -> {
@@ -607,7 +621,7 @@ public class PetWindow extends JWindow {
         });
         contextMenu.add(exitMenuItem);
 
-        // --- 菜单自动隐藏 (来自你的逻辑) ---
+        // 菜单自动隐藏
         // (已为你修复变量名)
         contextMenu.addMouseListener(new MouseAdapter() {
             @Override
@@ -632,7 +646,7 @@ public class PetWindow extends JWindow {
         pistonMenuItem.addMouseListener(childMouseListener);
         specialActionMenuItem.addMouseListener(childMouseListener);
         exitMenuItem.addMouseListener(childMouseListener);
-        voiceOptionsMenu.addMouseListener(childMouseListener); // (新增)
+        voiceOptionsMenu.addMouseListener(childMouseListener);
     }
 
     /**
@@ -686,7 +700,7 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (来自你的逻辑)
+     * 
      * 创建锤子光标
      */
     private Cursor createHammerCursor() {
@@ -705,7 +719,7 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (来自你的逻辑)
+     * 
      * 创建活塞
      */
     private Cursor createPistonCursor() {
@@ -1018,13 +1032,13 @@ public class PetWindow extends JWindow {
         }
 
         if (isPistonMode) {
-            // (来自你的逻辑)
+            //
             setCursor(PistonCursor);
             pistonMenuItem.setText("取消推动");
             // (来自我之前的逻辑)
             logger.info("进入活塞模式");
         } else {
-            // (来自你的逻辑)
+            //
             setCursor(defaultCursor);
             pistonMenuItem.setText("我推!");
             // (来自我之前的逻辑)
@@ -1034,28 +1048,23 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (新增)
      * 执行特殊互动：播放动画、增加好感度，并开始冷却
      */
     private void performSpecialAction() {
-        // 1. 安全检查，虽然按钮应该已经被禁用了
-        if (isSpecialActionOnCooldown) {
-            return;
-        }
 
-        // 2. 进入冷却状态
+        // 进入冷却状态
         isSpecialActionOnCooldown = true;
         specialActionMenuItem.setEnabled(false);
         // (可选) 动态更新文本以显示剩余时间，这里先用简单文本
         specialActionMenuItem.setText("特殊互动 (冷却中...)");
 
-        // 3. 执行动作
+        // 执行动作
         logger.info("执行特殊互动！播放 '" + SPECIAL_ACTION_ANIMATION + "'，增加好感度 " + SPECIAL_ACTION_LIKEABILITY_GAIN);
         playAnimationOnce(SPECIAL_ACTION_ANIMATION);
 
         updateLikeabilityAsync(SPECIAL_ACTION_LIKEABILITY_GAIN);
 
-        // 4. 停止旧的计时器 (如果存在)
+        // 停止旧的计时器 (如果存在)
         if (specialActionCooldownTimer != null) {
             specialActionCooldownTimer.stop();
         }
@@ -1076,20 +1085,24 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * (新增)
-     * 请求 AudioManager 获取一个随机配对, 并执行 say()
+     * 请求 AudioManager 获取一个随机配对, 过滤掉黑名单中的 Key, 并执行 say()
      */
     private void sayRandomly() {
         SpeechPair pair = audioManager.getRandomSpeechPair();
 
         if (pair != null) {
-            // (修改) 调用新的 say() 签名
+
+            // (关键检查) 检查抽到的 Key 是否在我们的事件专用黑名单上
+            if (eventOnlyKeys.contains(pair.getKey())) {
+                logger.info("sayRandomly: 抽到了事件语音 (" + pair.getKey() + ")，跳过本次随机说话。");
+                return; // 跳过，不播放
+            }
+
+            // 如果不在黑名单上，正常播放
             say(pair.getKey(), pair.getText());
 
         } else {
             logger.warning("sayRandomly: 无法获取随机语音配对 (可能未加载)。");
-            // (可选) 播放一个备用
-            // say("error_sound", "我...没词了...", 3000);
         }
     }
 
@@ -1117,7 +1130,7 @@ public class PetWindow extends JWindow {
      *             (移除了 durationMs 参数, 我们将自动计算)
      */
     public void say(String audioKey, String text) {
-        // (新增) 检查气泡是否被禁用
+        // 检查气泡是否被禁用
         if (isBubbleDisabled) {
             // 仍然播放音频，只是不显示气泡
             if (!isMuted) {
@@ -1132,34 +1145,34 @@ public class PetWindow extends JWindow {
             audioManager.play(audioKey);
         }
 
-        // --- (新增) 动态时长计算 ---
-        // 1. 获取音频时长
+        // 动态时长计算
+        // 获取音频时长
         long audioDurationMs = audioManager.getAudioDurationMs(audioKey);
 
-        // 2. 估算文字阅读时长 (例如: 150毫秒/字)
+        // 估算文字阅读时长 (例如: 150毫秒/字)
         long textDurationMs = (long) (text.length() * 150);
 
-        // 3. 取两者中较长的一个
+        // 取两者中较长的一个
         long durationMs = Math.max(audioDurationMs, textDurationMs);
 
-        // 4. 强制设置一个最小和最大时长
+        // 强制设置一个最小和最大时长
         durationMs = Math.max(durationMs, 2000); // 至少显示 2 秒
         durationMs = Math.min(durationMs, 15000); // 最多显示 15 秒
-        // --- 结束 ---
+        // 结束
 
-        // (新增) 计算气泡的锚点 Y 坐标
-        // 1. 获取窗口在屏幕上的位置
+        // 计算气泡的锚点 Y 坐标
+        // 获取窗口在屏幕上的位置
         Point windowLocation = getLocationOnScreen();
-        // 2. 计算宠物 "头顶" 的 Y 坐标 = 窗口 Y + (偏移量 * 缩放比例)
+        // 计算宠物 "头顶" 的 Y 坐标 = 窗口 Y + (偏移量 * 缩放比例)
         int visualPetTopY = windowLocation.y + (int) (PET_VISUAL_TOP_OFFSET * scale);
 
-        // (修改) 调用 showBubble, 传入计算出的时长
+        // 调用 showBubble, 传入计算出的时长
         speechBubble.showBubble(text, (int) durationMs, visualPetTopY);
 
         logger.info("宠物说: " + text + " (音频: " + audioKey + ", 时长: " + durationMs + "ms)");
     }
 
-    // --- 内部类：处理鼠标事件 ---
+    // 内部类：处理鼠标事件
     private class PetMouseListener extends MouseAdapter {
 
         /**
@@ -1175,46 +1188,46 @@ public class PetWindow extends JWindow {
                 return; // 不执行后续的左键点击逻辑
             }
 
-            // --- (修改) 锤子模式点击逻辑 ---
+            // 锤子模式点击逻辑
             if (isHammerMode && SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1
                     && mousePressStart == null) {
                 logger.info("锤子模式点击！");
                 playAnimationOnce("headache");
                 sayForKey("ch0070_tactic_defeat_2");
-                updateLikeabilityAsync(-20); // 锤一下减少 20 好感度
+                updateLikeabilityAsync(-5);
 
-                // (新增) 点击后自动退出锤子模式
+                // 点击后自动退出锤子模式
                 toggleHammerMode();
 
                 return; // 阻止执行下面的“普通点击”
             }
 
-            // --- (新增) 推动模式点击逻辑 (实现与锤子一样的效果) ---
+            // 推动模式点击逻辑
             if (isPistonMode && SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1
                     && mousePressStart == null) {
                 logger.info("活塞模式点击！");
 
-                // 播放一个"推动"动画 (你可以改成 "knockdown" 或 "jump" 等)
+                // 播放一个"推动"动画
                 playAnimationOnce("knockdown");
 
                 sayForKey("ch0070_tactic_defeat_1");
 
-                // 推动一次减少好感度 (例如 -15)
-                updateLikeabilityAsync(-15);
+                // 推动一次减少好感度
+                updateLikeabilityAsync(-7);
 
-                // (新增) 点击后自动退出活塞模式
+                // 点击后自动退出活塞模式
                 togglePistonMode();
 
                 return; // 阻止执行下面的“普通点击”
             }
 
-            // (新增) 阻止活塞模式下的普通点击 (这段逻辑现在被上面的 if 块覆盖了，但保留也没问题)
+            // 阻止活塞模式下的普通点击
             if (isPistonMode && SwingUtilities.isLeftMouseButton(e)) {
                 logger.info("活塞模式点击，已忽略。");
                 return;
             }
 
-            // --- 普通左键单击 (逻辑不变) ---
+            // 普通左键单击 (逻辑不变)
             if (SwingUtilities.isLeftMouseButton(e) && e.getClickCount() == 1 && mousePressStart == null) {
                 logger.info("检测到左键单击事件，发送 CLICK 请求...");
                 // (向服务器发送点击请求...)
@@ -1271,37 +1284,19 @@ public class PetWindow extends JWindow {
         }
 
         /**
-         * 处理鼠标按下事件（用于拖动和 Shift 键活塞模式）
+         * 处理鼠标按下事件
          */
         @Override
         public void mousePressed(MouseEvent e) {
             if (SwingUtilities.isLeftMouseButton(e)) {
-                // 检查是否按下了 Shift 键以触发活塞模式（按下时触发一次）
-                if ((e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) != 0) {
-                    // 如果当前不是活塞模式，则切换并减少好感度
-                    if (!isPistonMode) {
-                        togglePistonMode();
-                        updateLikeabilityAsync(-10); // 假设活塞模式减少 10 好感度
-                        // 可以在这里设置一个特殊的拖动光标或动画
-                    }
-                    // 如果已经是活塞模式，按下不重复触发
-                }
-                // (重要修改) 只有在非锤子和非活塞模式下，才触发 pickup 拖动
-                else if (!isHammerMode && !isPistonMode) {
-                    // 正常按下，只记录起始点
+                if (!isHammerMode && !isPistonMode) {
                     mousePressStart = e.getPoint();
-                    // (已移除) 不在这里播放 pickup 动画
-                    // playAnimation("pickup");
                 }
-                // (新增) 如果在锤子或活塞模式下按下，我们什么也不做
-                // 这样 mousePressStart 保持为 null，
-                // mouseReleased 不会错误地切换回 idle，
-                // mouseClicked 也能正确检测到单击事件
             }
         }
 
         /**
-         * 处理鼠标释放事件（停止拖动）
+         * 处理鼠标释放事件
          */
         @Override
         public void mouseReleased(MouseEvent e) {
@@ -1313,10 +1308,6 @@ public class PetWindow extends JWindow {
                 if (wasDragging && "pickup".equals(currentAnimationName)) {
                     playAnimation(getDefaultIdleAnimation(currentLikeability));
                 }
-                // 如果是 Shift 键释放，并且处于活塞模式，可以选择在这里退出活塞模式
-                // if ((e.getModifiersEx() & MouseEvent.SHIFT_DOWN_MASK) == 0 && isPistonMode) {
-                // togglePistonMode();
-                // }
             }
         }
 
@@ -1327,11 +1318,11 @@ public class PetWindow extends JWindow {
         public void mouseDragged(MouseEvent e) {
             // 必须是左键按下状态，并且记录了起始点，且当前是 pickup 动画
             if (SwingUtilities.isLeftMouseButton(e) && mousePressStart != null) {
-                // (新增) 检查：如果拖动开始了，但 "pickup" 还没播放，则开始播放
+                // 检查：如果拖动开始了，但 "pickup" 还没播放，则开始播放
                 if (!isAnimationPlaying("pickup")) {
                     playAnimation("pickup");
                 }
-                // --- 后续的拖动逻辑不变 ---
+                // 后续的拖动逻辑不变
                 Point currentLocation = getLocation();
                 Point mouseLocation = e.getLocationOnScreen(); // 获取鼠标在屏幕上的位置
                 // 计算新窗口位置：当前鼠标屏幕位置 - 鼠标在窗口内的按下偏移
@@ -1371,7 +1362,7 @@ public class PetWindow extends JWindow {
         }
 
         /**
-         * (来自你的逻辑)
+         * 
          * 动画加载逻辑 (在后台线程执行)
          */
         @Override
@@ -1379,13 +1370,12 @@ public class PetWindow extends JWindow {
             // 加载优先动画
             logger.info("后台：开始加载优先动画...");
             Map<String, List<BufferedImage>> priorityAnimations = loadPriorityAnimations(petName, initialLikeability);
-            // 将加载的动画放入主 Map
+            // (安全地放入 ConcurrentHashMap)
             animations.putAll(priorityAnimations);
 
             // 准备第一帧
             initialAnimationName = getDefaultIdleAnimation(initialLikeability);
             if (!animations.containsKey(initialAnimationName) || animations.get(initialAnimationName).isEmpty()) {
-                // 如果期望的 idle（如 idle_happy）加载失败，回退到 idle_normal
                 logger.warning("期望的 idle 动画 '" + initialAnimationName + "' 加载失败，回退到 idle_normal");
                 initialAnimationName = "idle_normal";
             }
@@ -1397,29 +1387,35 @@ public class PetWindow extends JWindow {
             } else {
                 // 严重错误：连 idle_normal 都加载失败
                 logger.severe("关键动画 (idle_normal) 加载失败，无法启动宠物");
-                // 抛出异常，让 done() 方法处理
                 throw new RuntimeException("关键动画 (idle) 加载失败，无法启动宠物");
             }
 
-            // 加载剩余的动画
-            logger.info("后台：开始加载剩余动画...");
+            // 开始逐个加载剩余的动画
+            logger.info("后台：开始逐个加载剩余动画...");
             List<String> allTypes = listAnimationTypes();
             List<String> remainingNames = allTypes.stream()
                     .filter(name -> !animations.containsKey(name)) // 过滤掉已经加载的
                     .collect(Collectors.toList());
 
             logger.info("后台加载列表: " + remainingNames);
-            if (!remainingNames.isEmpty()) {
-                Map<String, List<BufferedImage>> remainingAnimations = loadSpecificAnimations(petName, remainingNames);
-                animations.putAll(remainingAnimations); // 添加到主 Map
+
+            // 循环，逐个加载并立即放入 map
+            for (String animationName : remainingNames) {
+                List<BufferedImage> frames = loadAnimationFrames(petName, animationName);
+
+                if (frames != null) {
+                    // 立即将加载好的动画放入线程安全的 map
+                    // 这样 EDT 上的 playAnimationOnce 就能立刻访问到它
+                    animations.put(animationName, frames);
+                }
             }
+            // (旧的批量加载代码已被移除)
 
             logger.info("后台：所有动画加载完毕。");
 
-            // 确保 idle_normal 存在 (从原 loadAnimations 移植来的备用逻辑)
+            // 确保 idle_normal 存在 (备用逻辑)
             if (!animations.containsKey("idle_normal") || animations.get("idle_normal").isEmpty()) {
                 logger.warning("警告：缺少基础动画 'idle_normal'！");
-                // 尝试找一个存在的 idle 动画作为备用
                 String fallbackIdle = animations.keySet().stream().filter(k -> k.startsWith("idle_")).findFirst()
                         .orElse(null);
                 if (fallbackIdle == null && !animations.isEmpty()) {
@@ -1470,7 +1466,7 @@ public class PetWindow extends JWindow {
                 logger.info("所有动画加载完成。开始播放初始动画: " + initialAnimationName);
                 playAnimation(initialAnimationName);
 
-                // (新增) 启动自动说话计时器
+                // 启动自动说话计时器
                 logger.info("启动自动说话计时器 (2分钟)...");
                 autoSpeechTimer.start();
 
@@ -1549,7 +1545,7 @@ public class PetWindow extends JWindow {
                     return;
                 }
 
-                // (重要) 检查系统是否支持 "移至回收站"
+                // 检查系统是否支持 "移至回收站"
                 if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.MOVE_TO_TRASH)) {
                     logger.warning("文件拖放被接收，但系统不支持 '移至回收站'。");
                     JOptionPane.showMessageDialog(PetWindow.this,
@@ -1559,19 +1555,31 @@ public class PetWindow extends JWindow {
                     return;
                 }
 
-                // (重要) 将文件 I/O 操作放入后台线程，避免冻结 UI
+                // 将文件 I/O 操作放入后台线程，避免冻结 UI
                 new Thread(() -> {
-                    // (修改) 不再使用 boolean fileMoved，而是使用计数器
+                    // 声明两个计数器
                     int filesMovedCount = 0;
+                    int totalLikeabilityGained = 0; // 用于累加好感度
 
                     for (File file : files) {
                         try {
+                            // 在移动前获取文件名
+                            String fileName = file.getName();
+
                             logger.info("后台：正在将文件移至回收站: " + file.getAbsolutePath());
                             // 执行 "移至回收站"
                             Desktop.getDesktop().moveToTrash(file);
 
-                            // (修改) 每成功一个，计数器+1
+                            // 每成功一个，文件计数器+1
                             filesMovedCount++;
+
+                            // 根据文件名累加好感度
+                            if ("街头混混系列第1本".equals(fileName)) {
+                                totalLikeabilityGained += 15; // 特殊文件 +30
+                                logger.info("检测到特殊文件: " + fileName + ", 增加 30 好感度。");
+                            } else {
+                                totalLikeabilityGained += 2; // 普通文件 +5
+                            }
 
                         } catch (Exception e) {
                             logger.log(Level.SEVERE, "后台：无法将文件移至回收站: " + file.getName(), e);
@@ -1584,25 +1592,23 @@ public class PetWindow extends JWindow {
                         }
                     }
 
-                    // (修改) 检查计数器是否大于0
+                    // 检查计数器是否大于0 (即至少有一个文件成功移动)
                     if (filesMovedCount > 0) {
                         logger.info("后台：" + filesMovedCount + " 个文件已被接收，请求 'skill' 动画。");
 
-                        // (修改) 计算总共应增加的好感度
-                        final int totalLikeabilityGained = filesMovedCount * 5; // 每个文件 +5
+                        // (修改) 现在 totalLikeabilityGained 是在循环中计算好的
+                        // 我们需要一个 final 变量才能在 invokeLater 中使用
+                        final int finalTotalLikeabilityGained = totalLikeabilityGained;
 
-                        // (重要修正) 把日志记录移到 invokeLater 的外部
-                        // 这行代码现在在后台线程执行，可以直接访问 filesMovedCount
-                        logger.info("因接收 " + filesMovedCount + " 个文件，好感度请求增加: " + totalLikeabilityGained);
+                        // (修改) 记录累加后的总好感度
+                        logger.info("因接收 " + filesMovedCount + " 个文件，好感度请求增加: " + finalTotalLikeabilityGained);
 
                         // 在 EDT 中只播放动画并更新好感度
                         SwingUtilities.invokeLater(() -> {
                             playAnimationOnce("skill"); // 动画只播放一次
 
-                            // (修改) 一次性更新总的好感度
-                            updateLikeabilityAsync(totalLikeabilityGained);
-
-                            // (已移除) logger.info(...) 已被移到外面
+                            // 一次性更新总的好感度
+                            updateLikeabilityAsync(finalTotalLikeabilityGained);
                         });
                     }
                 }, "File-Trashing-Thread").start();
