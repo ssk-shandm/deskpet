@@ -36,6 +36,7 @@ public class PetWindow extends JWindow {
 
     private static final Logger logger = Logger.getLogger(PetWindow.class.getName());
     private final double scale = 0.5; // 图片缩放比例
+    private final int PET_VISUAL_TOP_OFFSET = 120; // 气泡偏移量
     private final Map<String, List<BufferedImage>> animations = new HashMap<>();
     private final JLabel imageLabel = new JLabel();
     private Timer animationTimer;
@@ -51,6 +52,23 @@ public class PetWindow extends JWindow {
     private JMenuItem pistonMenuItem;
     private JMenuItem MoveFileMenuItem;
     private JMenuItem specialActionMenuItem;
+    // (新增) 语音和气泡相关
+    private JMenu voiceOptionsMenu; // (新增) 语音选项
+    private JCheckBoxMenuItem muteMenuItem; // (新增) 是否静音
+    private JMenu volumeSubMenu; // (新增) 调整音量子菜单
+    private JCheckBoxMenuItem showBubbleMenuItem; // (新增) 是否显示气泡
+    private JMenu languageSubMenu; // (新增) 显示语言 (子菜单)
+
+    // (新增) 语音和气泡的状态
+    private boolean isMuted = false;
+    private float currentVolume = 0.8f; // 0.0f (静音) 到 1.0f (最大)
+    private boolean isBubbleDisabled = false; // (新增) 气泡是否被禁用
+
+    // (新增) 气泡窗口和音频管理器 (我们稍后会创建这些类)
+    private SpeechBubble speechBubble;
+    private final AudioManager audioManager;
+
+    private Timer autoSpeechTimer; // (新增) 自动说话计时器
 
     private Timer specialActionCooldownTimer;
 
@@ -88,6 +106,17 @@ public class PetWindow extends JWindow {
 
         // --- (新增) 在此处调用 ---
         createCursors(); // <--- 添加这一行来初始化光标
+
+        // (新增) 初始化音频和气泡组件
+        this.audioManager = new AudioManager();
+
+        // (修改) 显式传递 PetWindow 自己的、能工作的 GraphicsConfiguration
+        this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
+
+        // (新增) 初始化自动说话计时器
+        // 2 分钟 = 120,000 毫秒
+        this.autoSpeechTimer = new Timer(120000, e -> sayRandomly());
+        this.autoSpeechTimer.setRepeats(true); // 确保它重复执行
 
         // --- 加载资源和初始化 (非数据依赖) ---
         createContextMenu(); // 创建右键菜单
@@ -252,7 +281,7 @@ public class PetWindow extends JWindow {
 
         // 尝试从 .properties 文件动态加载
         java.util.Properties props = new java.util.Properties();
-        String resourcePath = "/BA/" + this.petName + "/animations.properties"; // 动态路径
+        String resourcePath = "mod/BA/" + this.petName + "/animations.properties"; // 动态路径
 
         // 使用 getResourceAsStream 来读取 JAR 包内的资源
         try (java.io.InputStream is = getClass().getResourceAsStream(resourcePath)) {
@@ -304,7 +333,7 @@ public class PetWindow extends JWindow {
 
         // 注意：这里假设路径是 /BA/{petName}/
         // 原始代码是 /BA/seia/。如果 petName 不是 "seia"，这里需要正确
-        String basePath = "/BA/" + petName + "/";
+        String basePath = "/mod/BA/" + petName + "/";
 
         for (String name : animationNames) {
             List<BufferedImage> frames = new ArrayList<>();
@@ -467,6 +496,106 @@ public class PetWindow extends JWindow {
         pistonMenuItem.addActionListener(e -> togglePistonMode()); // 你的监听器
         contextMenu.add(pistonMenuItem);
 
+        contextMenu.addSeparator();
+
+        // --- (新增) 语音选项 ---
+        voiceOptionsMenu = new JMenu("语音选项");
+        voiceOptionsMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+
+        // 1. 是否静音
+        muteMenuItem = new JCheckBoxMenuItem("静音");
+        muteMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        muteMenuItem.setSelected(isMuted);
+        muteMenuItem.addActionListener(e -> {
+            isMuted = muteMenuItem.isSelected();
+            logger.info("设置静音: " + isMuted);
+            // 将状态同步给音频管理器
+            audioManager.setMuted(isMuted);
+        });
+        voiceOptionsMenu.add(muteMenuItem);
+
+        // 2. 调整音量 (子菜单滑动条)
+        volumeSubMenu = new JMenu("调整音量");
+        volumeSubMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+
+        // (新增) 创建一个 JSlider 滑动条
+        JSlider volumeSlider = new JSlider(0, 100, (int) (currentVolume * 100));
+        volumeSlider.setFont(new Font("Microsoft YaHei", Font.PLAIN, 10)); // 菜单里的字体小一点
+        volumeSlider.setPreferredSize(new Dimension(150, 45)); // 给滑动条一个合适的大小
+        volumeSlider.setMajorTickSpacing(50); // 每 50 显示一个大刻度
+        volumeSlider.setPaintTicks(true); // 显示刻度
+        volumeSlider.setPaintLabels(true); // 显示 "0", "50", "100" 标签
+
+        // (关键) 添加监听器, 实时响应拖动
+        volumeSlider.addChangeListener(e -> {
+            int volumePercent = volumeSlider.getValue();
+
+            // 检查音量是否真的改变了, 避免在相同值上重复设置
+            if (volumePercent != (int) (this.currentVolume * 100)) {
+
+                // 将 0-100 转换为 0.0f - 1.0f
+                this.currentVolume = volumePercent / 100.0f;
+
+                // (重要) 将音量设置同步给音频管理器
+                audioManager.setVolume(this.currentVolume);
+
+                logger.info("音量通过滑动条设置为: " + volumePercent + "%");
+            }
+        });
+
+        // (修改) 将滑动条添加到 *子菜单*
+        volumeSubMenu.add(volumeSlider);
+
+        // (修改) 将子菜单添加到 *主菜单*
+        voiceOptionsMenu.add(volumeSubMenu);
+
+        // 3. (修改) 是否显示气泡
+        showBubbleMenuItem = new JCheckBoxMenuItem("显示气泡");
+        showBubbleMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        showBubbleMenuItem.setSelected(!isBubbleDisabled); // 默认选中 (显示)
+        showBubbleMenuItem.addActionListener(e -> {
+            isBubbleDisabled = !showBubbleMenuItem.isSelected();
+            logger.info("设置气泡显示: " + !isBubbleDisabled);
+            if (isBubbleDisabled) {
+                // 如果禁用了，立即隐藏当前的气泡
+                speechBubble.setVisible(false);
+            }
+        });
+        voiceOptionsMenu.add(showBubbleMenuItem);
+
+        // 4. 显示语言 (作为子菜单)
+        languageSubMenu = new JMenu("显示语言");
+        languageSubMenu.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+
+        // (示例) 添加语言选项
+        ButtonGroup langGroup = new ButtonGroup();
+        JRadioButtonMenuItem langChinese = new JRadioButtonMenuItem("中文 (简体)");
+        langChinese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        langChinese.setSelected(true); // 默认中文
+        langChinese.addActionListener(e -> logger.info("语言切换到: 中文 (简体)"));
+
+        JRadioButtonMenuItem langEnglish = new JRadioButtonMenuItem("English");
+        langEnglish.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        langEnglish.addActionListener(e -> logger.info("语言切换到: English"));
+
+        JRadioButtonMenuItem langJapanese = new JRadioButtonMenuItem("日本語");
+        langJapanese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        langJapanese.addActionListener(e -> logger.info("语言切换到: 日本語"));
+
+        // (重要) ButtonGroup 确保一次只能选一个
+        langGroup.add(langChinese);
+        langGroup.add(langEnglish);
+        langGroup.add(langJapanese);
+
+        languageSubMenu.add(langChinese);
+        languageSubMenu.add(langEnglish);
+        languageSubMenu.add(langJapanese);
+
+        voiceOptionsMenu.add(languageSubMenu);
+
+        // (新增) 将新主菜单添加到右键菜单
+        contextMenu.add(voiceOptionsMenu);
+
         contextMenu.addSeparator(); // 我加了一个分隔符，让退出更清晰
 
         // --- 退出 (来自你的逻辑) ---
@@ -503,6 +632,7 @@ public class PetWindow extends JWindow {
         pistonMenuItem.addMouseListener(childMouseListener);
         specialActionMenuItem.addMouseListener(childMouseListener);
         exitMenuItem.addMouseListener(childMouseListener);
+        voiceOptionsMenu.addMouseListener(childMouseListener); // (新增)
     }
 
     /**
@@ -922,6 +1052,7 @@ public class PetWindow extends JWindow {
         // 3. 执行动作
         logger.info("执行特殊互动！播放 '" + SPECIAL_ACTION_ANIMATION + "'，增加好感度 " + SPECIAL_ACTION_LIKEABILITY_GAIN);
         playAnimationOnce(SPECIAL_ACTION_ANIMATION);
+
         updateLikeabilityAsync(SPECIAL_ACTION_LIKEABILITY_GAIN);
 
         // 4. 停止旧的计时器 (如果存在)
@@ -942,6 +1073,90 @@ public class PetWindow extends JWindow {
 
         specialActionCooldownTimer.setRepeats(false); // 确保计时器只运行一次
         specialActionCooldownTimer.start();
+    }
+
+    /**
+     * (新增)
+     * 请求 AudioManager 获取一个随机配对, 并执行 say()
+     */
+    private void sayRandomly() {
+        SpeechPair pair = audioManager.getRandomSpeechPair();
+
+        if (pair != null) {
+            // (修改) 调用新的 say() 签名
+            say(pair.getKey(), pair.getText());
+
+        } else {
+            logger.warning("sayRandomly: 无法获取随机语音配对 (可能未加载)。");
+            // (可选) 播放一个备用
+            // say("error_sound", "我...没词了...", 3000);
+        }
+    }
+
+    /**
+     * (新增)
+     * 播放一个特定键的语音和气泡
+     * 
+     * @param key (例如 "attack")
+     */
+    private void sayForKey(String key) {
+        SpeechPair pair = audioManager.getSpeechPair(key);
+        if (pair != null) {
+            say(pair.getKey(), pair.getText());
+        } else {
+            logger.warning("sayForKey: 无法为 " + key + " 找到 SpeechPair。");
+        }
+    }
+
+    /**
+     * (修改)
+     * 触发宠物说话 (播放语音和显示气泡)
+     * * @param audioKey 语音文件的键 (例如 "greeting")
+     * 
+     * @param text 气泡上显示的文字
+     *             (移除了 durationMs 参数, 我们将自动计算)
+     */
+    public void say(String audioKey, String text) {
+        // (新增) 检查气泡是否被禁用
+        if (isBubbleDisabled) {
+            // 仍然播放音频，只是不显示气泡
+            if (!isMuted) {
+                audioManager.play(audioKey);
+            }
+            logger.info("宠物(气泡已禁用)说: " + text);
+            return; // 跳过所有气泡逻辑
+        }
+
+        if (!isMuted) {
+            // (步骤 2 实现) 播放音频
+            audioManager.play(audioKey);
+        }
+
+        // --- (新增) 动态时长计算 ---
+        // 1. 获取音频时长
+        long audioDurationMs = audioManager.getAudioDurationMs(audioKey);
+
+        // 2. 估算文字阅读时长 (例如: 150毫秒/字)
+        long textDurationMs = (long) (text.length() * 150);
+
+        // 3. 取两者中较长的一个
+        long durationMs = Math.max(audioDurationMs, textDurationMs);
+
+        // 4. 强制设置一个最小和最大时长
+        durationMs = Math.max(durationMs, 2000); // 至少显示 2 秒
+        durationMs = Math.min(durationMs, 15000); // 最多显示 15 秒
+        // --- 结束 ---
+
+        // (新增) 计算气泡的锚点 Y 坐标
+        // 1. 获取窗口在屏幕上的位置
+        Point windowLocation = getLocationOnScreen();
+        // 2. 计算宠物 "头顶" 的 Y 坐标 = 窗口 Y + (偏移量 * 缩放比例)
+        int visualPetTopY = windowLocation.y + (int) (PET_VISUAL_TOP_OFFSET * scale);
+
+        // (修改) 调用 showBubble, 传入计算出的时长
+        speechBubble.showBubble(text, (int) durationMs, visualPetTopY);
+
+        logger.info("宠物说: " + text + " (音频: " + audioKey + ", 时长: " + durationMs + "ms)");
     }
 
     // --- 内部类：处理鼠标事件 ---
@@ -965,6 +1180,7 @@ public class PetWindow extends JWindow {
                     && mousePressStart == null) {
                 logger.info("锤子模式点击！");
                 playAnimationOnce("headache");
+                sayForKey("ch0070_tactic_defeat_2");
                 updateLikeabilityAsync(-20); // 锤一下减少 20 好感度
 
                 // (新增) 点击后自动退出锤子模式
@@ -980,6 +1196,8 @@ public class PetWindow extends JWindow {
 
                 // 播放一个"推动"动画 (你可以改成 "knockdown" 或 "jump" 等)
                 playAnimationOnce("knockdown");
+
+                sayForKey("ch0070_tactic_defeat_1");
 
                 // 推动一次减少好感度 (例如 -15)
                 updateLikeabilityAsync(-15);
@@ -1251,6 +1469,10 @@ public class PetWindow extends JWindow {
 
                 logger.info("所有动画加载完成。开始播放初始动画: " + initialAnimationName);
                 playAnimation(initialAnimationName);
+
+                // (新增) 启动自动说话计时器
+                logger.info("启动自动说话计时器 (2分钟)...");
+                autoSpeechTimer.start();
 
             } catch (InterruptedException | ExecutionException e) {
                 logger.log(Level.SEVERE, "动画加载线程失败", e);
