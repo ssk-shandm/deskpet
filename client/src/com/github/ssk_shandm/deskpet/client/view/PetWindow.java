@@ -50,12 +50,21 @@ public class PetWindow extends JWindow {
     private JMenuItem hammerMenuItem;
     private JMenuItem pistonMenuItem;
     private JMenuItem MoveFileMenuItem;
+    private JMenuItem specialActionMenuItem;
+
+    private Timer specialActionCooldownTimer;
 
     private Cursor hammerCursor;
     private Cursor PistonCursor;
     private Cursor defaultCursor;
     private volatile boolean isHammerMode = false;
     private volatile boolean isPistonMode = false;
+    private volatile boolean isSpecialActionOnCooldown = false;
+
+    // (新增) 特殊互动的常量
+    private static final int SPECIAL_ACTION_COOLDOWN_MS = 60000; // 冷却时间 (60000 毫秒 = 60 秒)
+    private static final String SPECIAL_ACTION_ANIMATION = "attack";
+    private static final int SPECIAL_ACTION_LIKEABILITY_GAIN = 10; // 每次互动增加的好感度
 
     private final ApiClient apiClient = new ApiClient();
     private String petName = "加载中..."; // 初始值
@@ -434,6 +443,18 @@ public class PetWindow extends JWindow {
         MoveFileMenuItem.setEnabled(false);
         contextMenu.add(MoveFileMenuItem);
 
+        // 训练
+        specialActionMenuItem = new JMenuItem("特殊互动 (准备就绪)");
+        specialActionMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        specialActionMenuItem.setEnabled(true); // 初始状态为可用
+
+        specialActionMenuItem.addActionListener(e -> {
+            if (!isSpecialActionOnCooldown) {
+                performSpecialAction();
+            }
+        });
+        contextMenu.add(specialActionMenuItem);
+
         // --- 锤子 (来自你的逻辑) ---
         hammerMenuItem = new JMenuItem("敲击!"); // 你的 'hammerItem'
         hammerMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
@@ -479,7 +500,8 @@ public class PetWindow extends JWindow {
         infoItem.addMouseListener(childMouseListener);
         cheatLikeabilityItem.addMouseListener(childMouseListener);
         hammerMenuItem.addMouseListener(childMouseListener);
-        pistonMenuItem.addMouseListener(childMouseListener); // (为你补上了 pistonItem 的监听)
+        pistonMenuItem.addMouseListener(childMouseListener);
+        specialActionMenuItem.addMouseListener(childMouseListener);
         exitMenuItem.addMouseListener(childMouseListener);
     }
 
@@ -881,6 +903,47 @@ public class PetWindow extends JWindow {
         }
     }
 
+    /**
+     * (新增)
+     * 执行特殊互动：播放动画、增加好感度，并开始冷却
+     */
+    private void performSpecialAction() {
+        // 1. 安全检查，虽然按钮应该已经被禁用了
+        if (isSpecialActionOnCooldown) {
+            return;
+        }
+
+        // 2. 进入冷却状态
+        isSpecialActionOnCooldown = true;
+        specialActionMenuItem.setEnabled(false);
+        // (可选) 动态更新文本以显示剩余时间，这里先用简单文本
+        specialActionMenuItem.setText("特殊互动 (冷却中...)");
+
+        // 3. 执行动作
+        logger.info("执行特殊互动！播放 '" + SPECIAL_ACTION_ANIMATION + "'，增加好感度 " + SPECIAL_ACTION_LIKEABILITY_GAIN);
+        playAnimationOnce(SPECIAL_ACTION_ANIMATION);
+        updateLikeabilityAsync(SPECIAL_ACTION_LIKEABILITY_GAIN);
+
+        // 4. 停止旧的计时器 (如果存在)
+        if (specialActionCooldownTimer != null) {
+            specialActionCooldownTimer.stop();
+        }
+
+        // 5. 启动一个新的、一次性的冷却计时器
+        specialActionCooldownTimer = new Timer(SPECIAL_ACTION_COOLDOWN_MS, e -> {
+            logger.info("特殊互动冷却完毕。");
+            isSpecialActionOnCooldown = false;
+            specialActionMenuItem.setEnabled(true);
+            specialActionMenuItem.setText("特殊互动 (准备就绪)");
+
+            // 停止这个一次性计时器
+            ((Timer) e.getSource()).stop();
+        });
+
+        specialActionCooldownTimer.setRepeats(false); // 确保计时器只运行一次
+        specialActionCooldownTimer.start();
+    }
+
     // --- 内部类：处理鼠标事件 ---
     private class PetMouseListener extends MouseAdapter {
 
@@ -1007,10 +1070,10 @@ public class PetWindow extends JWindow {
                 }
                 // (重要修改) 只有在非锤子和非活塞模式下，才触发 pickup 拖动
                 else if (!isHammerMode && !isPistonMode) {
-                    // 正常按下，记录起始点并播放 pickup 动画
+                    // 正常按下，只记录起始点
                     mousePressStart = e.getPoint();
-                    // 按下时播放 pickup 动画
-                    playAnimation("pickup");
+                    // (已移除) 不在这里播放 pickup 动画
+                    // playAnimation("pickup");
                 }
                 // (新增) 如果在锤子或活塞模式下按下，我们什么也不做
                 // 这样 mousePressStart 保持为 null，
@@ -1045,7 +1108,12 @@ public class PetWindow extends JWindow {
         @Override
         public void mouseDragged(MouseEvent e) {
             // 必须是左键按下状态，并且记录了起始点，且当前是 pickup 动画
-            if (SwingUtilities.isLeftMouseButton(e) && mousePressStart != null && isAnimationPlaying("pickup")) {
+            if (SwingUtilities.isLeftMouseButton(e) && mousePressStart != null) {
+                // (新增) 检查：如果拖动开始了，但 "pickup" 还没播放，则开始播放
+                if (!isAnimationPlaying("pickup")) {
+                    playAnimation("pickup");
+                }
+                // --- 后续的拖动逻辑不变 ---
                 Point currentLocation = getLocation();
                 Point mouseLocation = e.getLocationOnScreen(); // 获取鼠标在屏幕上的位置
                 // 计算新窗口位置：当前鼠标屏幕位置 - 鼠标在窗口内的按下偏移
