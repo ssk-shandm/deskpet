@@ -489,7 +489,8 @@ public class PetWindow extends JWindow {
         // 训练
         specialActionMenuItem = new JMenuItem("特殊互动 (准备就绪)");
         specialActionMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        specialActionMenuItem.setEnabled(true); // 初始状态为可用
+        specialActionMenuItem.setEnabled(false); // 默认禁用
+        specialActionMenuItem.setToolTipText("动画还未加载"); // 添加提示
 
         specialActionMenuItem.addActionListener(e -> {
             if (!isSpecialActionOnCooldown) {
@@ -501,12 +502,16 @@ public class PetWindow extends JWindow {
         // 锤子
         hammerMenuItem = new JMenuItem("敲击!"); // 你的 'hammerItem'
         hammerMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        hammerMenuItem.setEnabled(false); // 默认禁用
+        hammerMenuItem.setToolTipText("动画还未加载"); // 添加提示
         hammerMenuItem.addActionListener(e -> toggleHammerMode()); // 你的监听器
         contextMenu.add(hammerMenuItem);
 
         // 轻推
         pistonMenuItem = new JMenuItem("我推!"); // 你的 'pistonItem'
         pistonMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        pistonMenuItem.setEnabled(false); // 默认禁用
+        pistonMenuItem.setToolTipText("动画还未加载"); // 添加提示
         pistonMenuItem.addActionListener(e -> togglePistonMode()); // 你的监听器
         contextMenu.add(pistonMenuItem);
 
@@ -588,22 +593,16 @@ public class PetWindow extends JWindow {
         langChinese.setSelected(true); // 默认中文
         langChinese.addActionListener(e -> logger.info("语言切换到: 中文 (简体)"));
 
-        JRadioButtonMenuItem langEnglish = new JRadioButtonMenuItem("English");
-        langEnglish.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        langEnglish.addActionListener(e -> logger.info("语言切换到: English"));
-
-        JRadioButtonMenuItem langJapanese = new JRadioButtonMenuItem("日本語");
-        langJapanese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        langJapanese.addActionListener(e -> logger.info("语言切换到: 日本語"));
+        // JRadioButtonMenuItem langJapanese = new JRadioButtonMenuItem("日本語");
+        // langJapanese.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        // langJapanese.addActionListener(e -> logger.info("语言切换到: 日本語"));
 
         // ButtonGroup 确保一次只能选一个
         langGroup.add(langChinese);
-        langGroup.add(langEnglish);
-        langGroup.add(langJapanese);
+        // langGroup.add(langJapanese);
 
         languageSubMenu.add(langChinese);
-        languageSubMenu.add(langEnglish);
-        languageSubMenu.add(langJapanese);
+        // languageSubMenu.add(langJapanese);
 
         voiceOptionsMenu.add(languageSubMenu);
 
@@ -613,8 +612,8 @@ public class PetWindow extends JWindow {
         contextMenu.addSeparator(); // 我加了一个分隔符，让退出更清晰
 
         // 退出
-        exitMenuItem = new JMenuItem("退出"); // 你的 'exitMenu'
-        exitMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); // (为你添加了字体统一样式)
+        exitMenuItem = new JMenuItem("退出"); 
+        exitMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); 
         exitMenuItem.addActionListener(e -> {
             System.out.println("退出...");
             System.exit(0);
@@ -622,7 +621,6 @@ public class PetWindow extends JWindow {
         contextMenu.add(exitMenuItem);
 
         // 菜单自动隐藏
-        // (已为你修复变量名)
         contextMenu.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseExited(MouseEvent e) {
@@ -1141,24 +1139,26 @@ public class PetWindow extends JWindow {
         }
 
         if (!isMuted) {
-            // (步骤 2 实现) 播放音频
+            // 播放音频
             audioManager.play(audioKey);
         }
 
-        // 动态时长计算
         // 获取音频时长
-        long audioDurationMs = audioManager.getAudioDurationMs(audioKey);
+        long durationMs = audioManager.getAudioDurationMs(audioKey);
 
-        // 估算文字阅读时长 (例如: 150毫秒/字)
-        long textDurationMs = (long) (text.length() * 150);
+        // 检查音频是否存在
+        if (durationMs <= 0) {
+            // 如果音频时长为 0 (例如文件丢失或未加载)
+            // 我们回退到基于文本的计算, 否则气泡会一闪而过
+            logger.warning("音频 " + audioKey + " 时长为 0, 回退到按文本计算时长。");
 
-        // 取两者中较长的一个
-        long durationMs = Math.max(audioDurationMs, textDurationMs);
+            // 估算文字阅读时长 (例如: 150毫秒/字)
+            durationMs = (long) (text.length() * 150);
 
-        // 强制设置一个最小和最大时长
-        durationMs = Math.max(durationMs, 2000); // 至少显示 2 秒
-        durationMs = Math.min(durationMs, 15000); // 最多显示 15 秒
-        // 结束
+            // 仍然保留一个合理的最小和最大值, 仅用于 *没有* 音频的情况
+            durationMs = Math.max(durationMs, 2000); // 至少显示 2 秒
+            durationMs = Math.min(durationMs, 10000); // 最多显示 10 秒
+        }
 
         // 计算气泡的锚点 Y 坐标
         // 获取窗口在屏幕上的位置
@@ -1373,6 +1373,14 @@ public class PetWindow extends JWindow {
             // (安全地放入 ConcurrentHashMap)
             animations.putAll(priorityAnimations);
 
+            // (新) 立即检查已加载的优先动画，看是否能启用菜单项
+            // 必须在 SwingUtilities.invokeLater 中执行，因为这是在后台线程
+            SwingUtilities.invokeLater(() -> {
+                for (String animName : priorityAnimations.keySet()) {
+                    checkAndEnableMenuItem(animName);
+                }
+            });
+
             // 准备第一帧
             initialAnimationName = getDefaultIdleAnimation(initialLikeability);
             if (!animations.containsKey(initialAnimationName) || animations.get(initialAnimationName).isEmpty()) {
@@ -1407,6 +1415,12 @@ public class PetWindow extends JWindow {
                     // 立即将加载好的动画放入线程安全的 map
                     // 这样 EDT 上的 playAnimationOnce 就能立刻访问到它
                     animations.put(animationName, frames);
+
+                    // (新) 立即检查这个新加载的动画，看是否能启用菜单项
+                    final String loadedAnimName = animationName; // 供 lambda 使用
+                    SwingUtilities.invokeLater(() -> {
+                        checkAndEnableMenuItem(loadedAnimName);
+                    });
                 }
             }
             // (旧的批量加载代码已被移除)
@@ -1484,7 +1498,36 @@ public class PetWindow extends JWindow {
         }
     }
 
-    // ... (在 PetWindow 类的末尾, AnimationLoaderWorker 类的上方或下方)
+    /**
+     * (新增) 检查刚加载的动画是否对应某个菜单项，如果是，则在 EDT 中启用它
+     * * @param animationName 刚刚加载完成的动画名称
+     */
+    private void checkAndEnableMenuItem(String animationName) {
+        if (animationName == null) {
+            return;
+        }
+
+        // 1. 检查 "特殊互动" (需要 "attack" 动画)
+        if (animationName.equals(SPECIAL_ACTION_ANIMATION) && specialActionMenuItem != null) {
+            specialActionMenuItem.setEnabled(true);
+            specialActionMenuItem.setToolTipText(null); // 移除提示
+            logger.info("UI: 'specialActionMenuItem' 已启用 (attack 动画加载完毕)。");
+        }
+
+        // 2. 检查 "锤子" (需要 "headache" 动画)
+        if (animationName.equals("headache") && hammerMenuItem != null) {
+            hammerMenuItem.setEnabled(true);
+            hammerMenuItem.setToolTipText(null); // 移除提示
+            logger.info("UI: 'hammerMenuItem' 已启用 (headache 动画加载完毕)。");
+        }
+
+        // 3. 检查 "轻推" (需要 "knockdown" 动画)
+        if (animationName.equals("knockdown") && pistonMenuItem != null) {
+            pistonMenuItem.setEnabled(true);
+            pistonMenuItem.setToolTipText(null); // 移除提示
+            logger.info("UI: 'pistonMenuItem' 已启用 (knockdown 动画加载完毕)。");
+        }
+    }
 
     /**
      * (新增)
