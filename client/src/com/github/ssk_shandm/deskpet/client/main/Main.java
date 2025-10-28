@@ -18,6 +18,9 @@ public class Main {
             try {
                 UIManager.setLookAndFeel(new FlatLightLaf());
                 logger.info("FlatLaf Look and Feel 设置成功。");
+
+                UIManager.put("ToolTip.showOnDisabledComponents", true);
+                
             } catch (UnsupportedLookAndFeelException e) {
                 logger.log(Level.SEVERE, "无法设置 FlatLaf 外观", e);
                 // 可以选择显示警告，但通常程序仍能使用默认外观运行

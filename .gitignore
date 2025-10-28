@@ -32,3 +32,6 @@ bin/
 
 ### python ###
 *.py
+
+### sqlite ###
+deskpet.db

@@ -26,7 +26,7 @@ public class AudioManager {
     private final Random random = new Random();
 
     private boolean isMuted = false;
-    private float currentVolume = 0.8f; // 0.0f - 1.0f
+    private float currentVolume = 0.3f; // 0.0f - 1.0f
 
     public AudioManager() {
         // (修改) 调用加载器

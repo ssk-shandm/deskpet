@@ -61,7 +61,7 @@ public class PetWindow extends JWindow {
 
     // 语音和气泡的状态
     private boolean isMuted = false;
-    private float currentVolume = 0.3f; // 0.0f (静音) 到0f (最大)
+    private float currentVolume = 0.3f; // 0.0f (静音) 到 1.0f (最大)
     private boolean isBubbleDisabled = false; // 气泡是否被禁用
 
     // 气泡窗口和音频管理器
@@ -80,19 +80,24 @@ public class PetWindow extends JWindow {
     private volatile boolean isSpecialActionOnCooldown = false;
 
     // 特殊互动的常量
-    private static final int SPECIAL_ACTION_COOLDOWN_MS = 60000; // 冷却时间 (60000 毫秒 = 60 秒)
+    private static final int SPECIAL_ACTION_COOLDOWN_MS = 60000; // 冷却时间
     private static final String SPECIAL_ACTION_ANIMATION = "attack";
+    private static final String SPECIAL_ACTION_AUDIO = "ch0070_battle_in_1";
     private static final int SPECIAL_ACTION_LIKEABILITY_GAIN = 10; // 每次互动增加的好感度
 
     private final ApiClient apiClient = new ApiClient();
-    private String petName = "加载中..."; // 初始值
-    private int currentLikeability = 100; // 默认值，会被服务器数据覆盖
-    private String currentStatus = "health"; // 默认值，会被服务器数据覆盖
-    private long lastClickTimeFromServer = 0; // 存储从服务器获取的上次点击时间
+    private String petName = "加载中...";
+    private int currentLikeability = 100;
+    private String currentStatus = "health";
+    private long lastClickTimeFromServer = 0;
 
+    // 正常语音中需过滤的
     private final java.util.Set<String> eventOnlyKeys = java.util.Set.of(
             "ch0070_tactic_defeat_1",
-            "ch0070_tactic_defeat_2");
+            "ch0070_tactic_defeat_2",
+            "ch0070_battle_in_1",
+            "ch0070_exweapon_get",
+            "ch0070_growup_4");
 
     public PetWindow() {
         // 窗口基础设置
@@ -108,23 +113,20 @@ public class PetWindow extends JWindow {
         setLocationRelativeTo(null); // 窗口居中显示
         setVisible(true);
 
-        // 在此处调用
-        createCursors(); // 添加这一行来初始化光标
+        createCursors(); // 初始化光标
 
         // 初始化音频和气泡组件
         this.audioManager = new AudioManager();
 
-        // 显式传递 PetWindow 自己的、能工作的 GraphicsConfiguration
         this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
 
         // 初始化自动说话计时器
-        // 2 分钟 = 120,000 毫秒
         this.autoSpeechTimer = new Timer(120000, e -> sayRandomly());
-        this.autoSpeechTimer.setRepeats(true); // 确保它重复执行
+        this.autoSpeechTimer.setRepeats(true); // 重复执行
 
-        // 加载资源和初始化 (非数据依赖)
+        // 加载资源和初始化
         createContextMenu(); // 创建右键菜单
-        initListeners(); // 初始化事件监听器 (菜单项和鼠标事件)
+        initListeners(); // 初始化菜单项和鼠标事件
 
         // 异步加载数据和动画
         startLoadingProcess();
@@ -410,7 +412,7 @@ public class PetWindow extends JWindow {
      * 创建右键菜单
      */
     private void createContextMenu() {
-        contextMenu = new JPopupMenu(); // 你的 'Menu'
+        contextMenu = new JPopupMenu();
 
         // 信息显示
         final JMenuItem infoItem = new JMenuItem();
@@ -440,26 +442,24 @@ public class PetWindow extends JWindow {
             }
         });
 
-        // 好感度修改 (逻辑合并)
-        cheatLikeabilityItem = new JMenuItem("likeability test:"); // 你的 'cheatlikeabilityItem'
-        cheatLikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); // 你的样式
-        cheatLikeabilityItem.setBackground(contextMenu.getBackground()); // 你的样式
-        cheatLikeabilityItem.setForeground(Color.ORANGE); // 你的样式
-
+        // 好感度修改
+        cheatLikeabilityItem = new JMenuItem("likeability test:");
+        cheatLikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        cheatLikeabilityItem.setBackground(contextMenu.getBackground());
+        cheatLikeabilityItem.setForeground(Color.ORANGE);
         cheatLikeabilityItem.addActionListener(e -> {
-            // 你的交互方式
+
             String input = JOptionPane.showInputDialog(PetWindow.this, "输入新的好感度:", currentLikeability);
 
             if (input == null) {
-                return; // 用户取消
+                return;
             }
 
             try {
                 int newLikeability = Integer.parseInt(input);
 
-                // (移除了 0-100 的限制，以匹配 800+ 的好感度等级)
                 // if (newLikeability > 100) newLikeability = 100;
-                // if (newLikeability < 0) newLikeability = 0;
+                // if (newLikeability <html 0) newLikeability = 0;
 
                 int difference = newLikeability - currentLikeability;
 
@@ -467,30 +467,29 @@ public class PetWindow extends JWindow {
                     return;
                 }
 
-                // (使用我们之前的异步更新方法)
-                // 它会在后台发送请求，并在成功后自动更新 currentLikeability 和 idle 动画
+                // 自动更新 currentLikeability 和 idle 动画
                 logger.info("通过菜单请求好感度变化: " + difference);
                 updateLikeabilityAsync(difference);
 
             } catch (NumberFormatException ex) {
-                // 你的错误提示
                 JOptionPane.showMessageDialog(PetWindow.this, "请输入有效的数字", "输入错误", JOptionPane.ERROR_MESSAGE);
             }
         });
         contextMenu.add(cheatLikeabilityItem);
 
         // 唯一增加好感提示
-        MoveFileMenuItem = new JMenuItem("拖动桌面文件给我能提升好感!"); // 你的 'hammerItem'
+        MoveFileMenuItem = new JMenuItem("<html>拖动桌面文件给我能提升好感!<br>试试'街头不良少年第1卷'!</html>");
         MoveFileMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        MoveFileMenuItem.addActionListener(e -> toggleMoveFileMode());
-        MoveFileMenuItem.setEnabled(false);
+        MoveFileMenuItem.setToolTipText("");
+        MoveFileMenuItem.setEnabled(true);
+        MoveFileMenuItem.setForeground(UIManager.getColor("MenuItem.disabledForeground"));
         contextMenu.add(MoveFileMenuItem);
 
         // 训练
         specialActionMenuItem = new JMenuItem("特殊互动 (准备就绪)");
         specialActionMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        specialActionMenuItem.setEnabled(false); // 默认禁用
-        specialActionMenuItem.setToolTipText("动画还未加载"); // 添加提示
+        specialActionMenuItem.setEnabled(false);
+        specialActionMenuItem.setToolTipText("动画还未加载");
 
         specialActionMenuItem.addActionListener(e -> {
             if (!isSpecialActionOnCooldown) {
@@ -500,19 +499,19 @@ public class PetWindow extends JWindow {
         contextMenu.add(specialActionMenuItem);
 
         // 锤子
-        hammerMenuItem = new JMenuItem("敲击!"); // 你的 'hammerItem'
+        hammerMenuItem = new JMenuItem("敲击!");
         hammerMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        hammerMenuItem.setEnabled(false); // 默认禁用
-        hammerMenuItem.setToolTipText("动画还未加载"); // 添加提示
-        hammerMenuItem.addActionListener(e -> toggleHammerMode()); // 你的监听器
+        hammerMenuItem.setEnabled(false);
+        hammerMenuItem.setToolTipText("动画还未加载");
+        hammerMenuItem.addActionListener(e -> toggleHammerMode());
         contextMenu.add(hammerMenuItem);
 
         // 轻推
-        pistonMenuItem = new JMenuItem("我推!"); // 你的 'pistonItem'
+        pistonMenuItem = new JMenuItem("我推!");
         pistonMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        pistonMenuItem.setEnabled(false); // 默认禁用
-        pistonMenuItem.setToolTipText("动画还未加载"); // 添加提示
-        pistonMenuItem.addActionListener(e -> togglePistonMode()); // 你的监听器
+        pistonMenuItem.setEnabled(false);
+        pistonMenuItem.setToolTipText("动画还未加载");
+        pistonMenuItem.addActionListener(e -> togglePistonMode());
         contextMenu.add(pistonMenuItem);
 
         contextMenu.addSeparator();
@@ -612,8 +611,8 @@ public class PetWindow extends JWindow {
         contextMenu.addSeparator(); // 我加了一个分隔符，让退出更清晰
 
         // 退出
-        exitMenuItem = new JMenuItem("退出"); 
-        exitMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12)); 
+        exitMenuItem = new JMenuItem("退出");
+        exitMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
         exitMenuItem.addActionListener(e -> {
             System.out.println("退出...");
             System.exit(0);
@@ -632,7 +631,8 @@ public class PetWindow extends JWindow {
         MouseAdapter childMouseListener = new MouseAdapter() {
             @Override
             public void mouseExited(MouseEvent e) {
-                Point p = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), contextMenu);
+                Point p = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(),
+                        contextMenu);
                 if (!contextMenu.contains(p)) {
                     contextMenu.setVisible(false);
                 }
@@ -823,7 +823,7 @@ public class PetWindow extends JWindow {
         }
 
         // 创建并启动新的计时器
-        animationTimer = new Timer(27, e -> { // 每 100 毫秒切换一帧
+        animationTimer = new Timer(47, e -> { // 每 100 毫秒切换一帧
             currentFrameIndex = (currentFrameIndex + 1) % frames.size();
             setImageFrame(frames.get(currentFrameIndex));
         });
@@ -857,7 +857,7 @@ public class PetWindow extends JWindow {
 
         setImageFrame(frames.get(0)); // 显示第一帧
 
-        animationTimer = new Timer(27, e -> {
+        animationTimer = new Timer(47, e -> {
             currentFrameIndex++;
             if (currentFrameIndex < frames.size()) {
                 setImageFrame(frames.get(currentFrameIndex));
@@ -1059,6 +1059,7 @@ public class PetWindow extends JWindow {
         // 执行动作
         logger.info("执行特殊互动！播放 '" + SPECIAL_ACTION_ANIMATION + "'，增加好感度 " + SPECIAL_ACTION_LIKEABILITY_GAIN);
         playAnimationOnce(SPECIAL_ACTION_ANIMATION);
+        sayForKey(SPECIAL_ACTION_AUDIO);
 
         updateLikeabilityAsync(SPECIAL_ACTION_LIKEABILITY_GAIN);
 
@@ -1086,22 +1087,31 @@ public class PetWindow extends JWindow {
      * 请求 AudioManager 获取一个随机配对, 过滤掉黑名单中的 Key, 并执行 say()
      */
     private void sayRandomly() {
-        SpeechPair pair = audioManager.getRandomSpeechPair();
+        int attempts = 0;
+        int maxAttempts = 10; // 防止死循环
 
-        if (pair != null) {
+        while (attempts < maxAttempts) {
+            SpeechPair pair = audioManager.getRandomSpeechPair();
 
-            // (关键检查) 检查抽到的 Key 是否在我们的事件专用黑名单上
-            if (eventOnlyKeys.contains(pair.getKey())) {
-                logger.info("sayRandomly: 抽到了事件语音 (" + pair.getKey() + ")，跳过本次随机说话。");
-                return; // 跳过，不播放
+            if (pair == null) {
+                logger.warning("sayRandomly: 无法获取随机语音配对 (可能未加载)。");
+                return; // 无法获取，直接退出
             }
 
-            // 如果不在黑名单上，正常播放
-            say(pair.getKey(), pair.getText());
+            // 检查抽到的 Key 是否在我们的事件专用黑名单上
+            if (eventOnlyKeys.contains(pair.getKey())) {
+                logger.info("sayRandomly: 抽到了事件语音 (" + pair.getKey() + ")，正在重抽 (Attempt " + (attempts + 1) + ")");
+                attempts++;
+                continue;
+            }
 
-        } else {
-            logger.warning("sayRandomly: 无法获取随机语音配对 (可能未加载)。");
+            // 找到了一个不在黑名单上的，正常播放
+            say(pair.getKey(), pair.getText());
+            return; // 播放后退出方法，结束循环
         }
+
+        // 如果循环 10 次都失败了
+        logger.warning("sayRandomly: 尝试了 " + maxAttempts + " 次，但都抽到了事件语音。本次跳过。");
     }
 
     /**
@@ -1125,7 +1135,6 @@ public class PetWindow extends JWindow {
      * * @param audioKey 语音文件的键 (例如 "greeting")
      * 
      * @param text 气泡上显示的文字
-     *             (移除了 durationMs 参数, 我们将自动计算)
      */
     public void say(String audioKey, String text) {
         // 检查气泡是否被禁用
@@ -1144,21 +1153,31 @@ public class PetWindow extends JWindow {
         }
 
         // 获取音频时长
-        long durationMs = audioManager.getAudioDurationMs(audioKey);
+        long audioDurationMs = audioManager.getAudioDurationMs(audioKey);
 
-        // 检查音频是否存在
-        if (durationMs <= 0) {
-            // 如果音频时长为 0 (例如文件丢失或未加载)
-            // 我们回退到基于文本的计算, 否则气泡会一闪而过
-            logger.warning("音频 " + audioKey + " 时长为 0, 回退到按文本计算时长。");
+        // 估算文字阅读时长
+        // (例如: 基础 2.5 秒 + 200 毫秒/字)
+        long textDurationMs = 2500 + (long) (text.length() * 200);
 
-            // 估算文字阅读时长 (例如: 150毫秒/字)
-            durationMs = (long) (text.length() * 150);
+        // 为纯文字设置一个上限，避免过长
+        // textDurationMs = Math.min(textDurationMs, 10000); // 比如文字最多显示 10 秒
 
-            // 仍然保留一个合理的最小和最大值, 仅用于 *没有* 音频的情况
-            durationMs = Math.max(durationMs, 2000); // 至少显示 2 秒
-            durationMs = Math.min(durationMs, 10000); // 最多显示 10 秒
+        // 决定最终时长
+        long finalDurationMs;
+        if (audioDurationMs > 0) {
+            // 如果有音频，使用 音频时长 和 文字时长 中 *较大* 的一个
+            finalDurationMs = Math.max(audioDurationMs, textDurationMs);
+            // 这样，如果音频 15s 而文字 3s，则显示 15s
+            // 如果音频 1s 而文字 5s，则显示 5s
+        } else {
+            // 如果没有音频 (audioDurationMs <= 0)
+            logger.warning("音频 " + audioKey + " 时长为 0, 仅按文本计算时长。");
+            // 仅使用文字时长
+            finalDurationMs = textDurationMs;
         }
+
+        // 确保一个最小显示时间
+        finalDurationMs = Math.max(finalDurationMs, 2500); // 无论如何，至少显示 2.5 秒
 
         // 计算气泡的锚点 Y 坐标
         // 获取窗口在屏幕上的位置
@@ -1167,9 +1186,10 @@ public class PetWindow extends JWindow {
         int visualPetTopY = windowLocation.y + (int) (PET_VISUAL_TOP_OFFSET * scale);
 
         // 调用 showBubble, 传入计算出的时长
-        speechBubble.showBubble(text, (int) durationMs, visualPetTopY);
+        speechBubble.showBubble(text, (int) finalDurationMs, visualPetTopY);
 
-        logger.info("宠物说: " + text + " (音频: " + audioKey + ", 时长: " + durationMs + "ms)");
+        logger.info("宠物说: " + text + " (音频: " + audioKey + ", 音频时长: " + audioDurationMs + "ms, 估算文字: " + textDurationMs
+                + "ms, 最终: " + finalDurationMs + "ms)");
     }
 
     // 内部类：处理鼠标事件
@@ -1600,14 +1620,19 @@ public class PetWindow extends JWindow {
 
                 // 将文件 I/O 操作放入后台线程，避免冻结 UI
                 new Thread(() -> {
-                    // 声明两个计数器
                     int filesMovedCount = 0;
-                    int totalLikeabilityGained = 0; // 用于累加好感度
+                    int totalLikeabilityGained = 0;
+                    boolean hasSpecialFile = false;
 
                     for (File file : files) {
                         try {
-                            // 在移动前获取文件名
-                            String fileName = file.getName();
+                            String fileNameWithExt = file.getName(); 
+
+                            String fileNameWithoutExt = fileNameWithExt;
+                            int lastDotIndex = fileNameWithExt.lastIndexOf('.');
+                            if (lastDotIndex > 0) {
+                                fileNameWithoutExt = fileNameWithExt.substring(0, lastDotIndex);
+                            }
 
                             logger.info("后台：正在将文件移至回收站: " + file.getAbsolutePath());
                             // 执行 "移至回收站"
@@ -1616,12 +1641,15 @@ public class PetWindow extends JWindow {
                             // 每成功一个，文件计数器+1
                             filesMovedCount++;
 
-                            // 根据文件名累加好感度
-                            if ("街头混混系列第1本".equals(fileName)) {
-                                totalLikeabilityGained += 15; // 特殊文件 +30
-                                logger.info("检测到特殊文件: " + fileName + ", 增加 30 好感度。");
+                            // 根据文件名累加好感度+
+                            if ("街头混混系列第1本".equals(fileNameWithoutExt)) {
+                                totalLikeabilityGained += 15;
+                                hasSpecialFile = true;
+
+                                // 日志里还是记录完整文件名，方便调试
+                                logger.info("检测到特殊文件: " + fileNameWithExt + ", 增加 15 好感度。");
                             } else {
-                                totalLikeabilityGained += 2; // 普通文件 +5
+                                totalLikeabilityGained += 2;
                             }
 
                         } catch (Exception e) {
@@ -1639,19 +1667,26 @@ public class PetWindow extends JWindow {
                     if (filesMovedCount > 0) {
                         logger.info("后台：" + filesMovedCount + " 个文件已被接收，请求 'skill' 动画。");
 
-                        // (修改) 现在 totalLikeabilityGained 是在循环中计算好的
-                        // 我们需要一个 final 变量才能在 invokeLater 中使用
                         final int finalTotalLikeabilityGained = totalLikeabilityGained;
+
+                        final boolean wasSpecialFile = hasSpecialFile;
 
                         // (修改) 记录累加后的总好感度
                         logger.info("因接收 " + filesMovedCount + " 个文件，好感度请求增加: " + finalTotalLikeabilityGained);
 
                         // 在 EDT 中只播放动画并更新好感度
                         SwingUtilities.invokeLater(() -> {
-                            playAnimationOnce("skill"); // 动画只播放一次
+                            playAnimationOnce("skill");
+                            if (wasSpecialFile) {
+                                // 如果收到了特殊文件，播放特殊语音
+                                sayForKey("ch0070_exweapon_get");
+                            } else {
+                                // 否则，播放普通的 "skill" 语音
+                                sayForKey("ch0070_growup_4");
+                            }
 
                             // 一次性更新总的好感度
-                            updateLikeabilityAsync(finalTotalLikeabilityGained);
+                            updateLikeabilityAsync(finalTotalLikeabilityGained); //
                         });
                     }
                 }, "File-Trashing-Thread").start();
