@@ -11,6 +11,8 @@ public class SpeechBubble extends JWindow {
 
     private final Window parentWindow; // 父窗口 (PetWindow)
     private final JLabel textLabel; // 显示文本的标签
+    private static final java.util.logging.Logger logger = java.util.logging.Logger
+            .getLogger(SpeechBubble.class.getName());
     private Timer hideTimer; // 自动隐藏计时器
 
     // 气泡样式常量
@@ -20,8 +22,9 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 构造函数
+     * 
      * @param parent 父窗口 (PetWindow)
-     * @param gc 图形配置 (用于透明窗口)
+     * @param gc     图形配置 (用于透明窗口)
      */
     public SpeechBubble(Window parent, GraphicsConfiguration gc) {
         // 使用带 gc 的构造函数以支持透明
@@ -56,6 +59,7 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 显示气泡
+     * 
      * @param text       要显示的文字
      * @param durationMs 显示时长 (毫秒)
      * @param anchorY    锚点 (宠物头顶) 的屏幕 Y 坐标
@@ -71,13 +75,16 @@ public class SpeechBubble extends JWindow {
 
         // X 坐标: 在父窗口上居中
         int x = parentLocation.x + (parentWindow.getWidth() / 2) - (getWidth() / 2);
-        
+
         // Y 坐标: 在锚点 Y 之上 (留出 10px 间隙)
         int y = anchorY - getHeight() - 10;
 
         setLocation(x, y);
 
+        logger.info("SpeechBubble 正在设置时长为: " + durationMs + "ms");
+
         // 重启计时器
+        hideTimer.setInitialDelay(durationMs);
         hideTimer.setDelay(durationMs);
         hideTimer.restart();
 
@@ -104,7 +111,7 @@ public class SpeechBubble extends JWindow {
             // 不调用 super.paintComponent(g), 因为我们完全自定义背景
 
             Graphics2D g2d = (Graphics2D) g.create(); // 使用副本
-            
+
             // 开启抗锯齿, 使圆角平滑
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                     RenderingHints.VALUE_ANTIALIAS_ON);
@@ -129,7 +136,7 @@ public class SpeechBubble extends JWindow {
 
             // 释放资源
             g2d.dispose();
-            
+
             // Swing 会在此之后自动绘制子组件 (JLabel)
         }
     }

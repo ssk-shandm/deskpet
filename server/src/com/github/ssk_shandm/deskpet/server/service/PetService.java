@@ -18,6 +18,7 @@ public class PetService {
 
     /**
      * 获取或创建唯一的宠物信息 (固定 ID=1)
+     * 
      * @return Pet 对象
      */
     public Pet getOrCreatePet() {
@@ -35,6 +36,7 @@ public class PetService {
 
     /**
      * 更新宠物信息
+     * 
      * @param pet 包含最新数据的 Pet 对象
      * @return 更新成功返回 true, 否则返回 false
      */
@@ -47,6 +49,7 @@ public class PetService {
 
     /**
      * 检查 "Happy" 互动是否冷却完毕
+     * 
      * @return 如果可以互动返回 true，否则返回 false
      */
     public boolean canPerformHappyInteraction() {
@@ -64,6 +67,7 @@ public class PetService {
 
     /**
      * 记录一次成功的 "Happy" 互动时间
+     * 
      * @return 如果更新成功返回 true，否则返回 false
      */
     public boolean recordHappyInteraction() {
@@ -72,13 +76,25 @@ public class PetService {
             logger.warning("recordHappyInteraction: 无法获取宠物信息");
             return false;
         }
+
+        int currentLikeability = pet.getLikeability();
+        int newLikeability = currentLikeability + 15;
+
+        // 确保好感度不会超过 100
+        if (newLikeability > 100) {
+            newLikeability = 100;
+        }
+        pet.setLikeability(newLikeability); // 设置新的好感度
+
         long currentTime = System.currentTimeMillis();
         pet.setLastClickTime(currentTime);
-        return updatePet(pet); // 更新数据库
+
+        return updatePet(pet);
     }
 
     /**
      * 获取距离下次可以进行 "Happy" 互动还有多少毫秒
+     * 
      * @return 剩余的冷却时间（毫秒），如果已经冷却完毕则返回 0
      */
     public long getHappyInteractionRemainingCooldown() {

@@ -38,10 +38,10 @@ public class AudioManager {
     public AudioManager(ApiClient apiClient) {
         this.apiClient = apiClient;
 
-        // 1. 从服务器获取缓存
+        // 从服务器获取缓存
         Map<String, Long> cachedDurations = apiClient.getAudioDurations();
 
-        // 2. 加载语音数据 (传入缓存)
+        // 加载语音数据 (传入缓存)
         loadSpeechData("/audio/BA/seia/", cachedDurations);
         logger.info("音频管理器已初始化。");
     }
@@ -52,7 +52,7 @@ public class AudioManager {
     /**
      * 播放指定的音频
      * 
-     * @param key 音频的键 (例如 "ch0070_...")
+     * @param key 音频的键
      */
     public void play(String key) {
         if (isMuted) {
@@ -168,11 +168,10 @@ public class AudioManager {
     // =======================
 
     /**
-     * [!! 已修改 !!]
      * 核心加载方法：
-     * 1. 检查服务器缓存
-     * 2. 如果未命中，本地计算
-     * 3. 异步上传新计算的数据
+     * 检查服务器缓存
+     * 未命中则本地计算
+     * 异步上传新计算的数据
      */
     private void loadSpeechData(String resourcePath, Map<String, Long> cachedDurations) {
         logger.info("开始加载语音数据... 已有 " + cachedDurations.size() + " 条缓存。");
@@ -180,19 +179,18 @@ public class AudioManager {
         Map<String, Long> newDurationsToUpload = new HashMap<>();
 
         // 加载清单文件 (speech.properties)
+
         Properties props = new Properties();
         String propertiesPath = resourcePath + "speech.properties";
-        List<String> keysToLoad = new ArrayList<>();
 
         try (InputStream is = getClass().getResourceAsStream(propertiesPath)) {
             if (is == null) {
                 logger.severe("找不到语音清单文件: " + propertiesPath);
                 return;
             }
-            props.load(is);
-            String keys = props.getProperty("speech_keys");
-            if (keys != null && !keys.isEmpty()) {
-                keysToLoad.addAll(Arrays.asList(keys.split(",")));
+            // 使用 UTF-8 编码读取
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                props.load(reader);
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "读取语音清单失败: " + propertiesPath, e);
@@ -200,7 +198,7 @@ public class AudioManager {
         }
 
         // 遍历清单, 加载配对
-        for (String key : keysToLoad) {
+        for (String key : props.stringPropertyNames()) {
             key = key.trim();
             if (key.isEmpty())
                 continue;
@@ -215,12 +213,11 @@ public class AudioManager {
 
                 long durationMs = 0;
 
-                // [!! 自动化逻辑的核心 !!]
                 if (cachedDurations.containsKey(key)) {
-                    // 1. 下一次打开：直接从缓存读取
+                    // 下一次打开：直接从缓存读取
                     durationMs = cachedDurations.get(key);
                 } else {
-                    // 2. 第一次打开 (或新音频)：本地计算
+                    // 第一次打开 (或新音频)：本地计算
                     logger.info("未命中缓存: " + key + "。 正在本地计算时长...");
                     durationMs = calculateDurationReliably(audioUrl); // 调用辅助方法
 
@@ -237,20 +234,10 @@ public class AudioManager {
                     clip.open(audioStream);
                 }
 
-                // 加载 .txt 文本
-                String textPath = resourcePath + key + ".txt";
-                String textContent;
-                try (InputStream textIs = getClass().getResourceAsStream(textPath);
-                        BufferedReader reader = new BufferedReader(
-                                new InputStreamReader(textIs, StandardCharsets.UTF_8))) {
-                    textContent = reader.readLine(); // 假设文案只有一行
-                }
-                if (textContent == null || textContent.isEmpty()) {
-                    logger.warning("文案文件为空或找不到: " + textPath);
-                    textContent = "..."; // 提供备用
-                }
+                // 从 properties 文件中获取台词
+                String textContent = props.getProperty(key, "..."); 
 
-                // [!! 修正 !!] 使用包含时长的构造函数
+                // 用包含时长的构造函数
                 SpeechPair pair = new SpeechPair(key, clip, textContent, durationMs);
                 speechMap.put(key, pair);
                 keyList.add(key);
@@ -261,7 +248,6 @@ public class AudioManager {
             }
         }
 
-        // [!! 自动化逻辑的收尾 !!]
         // 异步将本次新计算的条目批量写入数据库
         if (!newDurationsToUpload.isEmpty()) {
             logger.info("发现 " + newDurationsToUpload.size() + " 条新音频，正在后台上传到服务器...");
@@ -270,13 +256,12 @@ public class AudioManager {
     }
 
     /**
-     * 辅助方法：使用 AudioFileFormat (可靠) 计算时长
+     * 辅助方法：使用 AudioFileFormat 计算时长
      */
     private long calculateDurationReliably(URL audioUrl) {
         long durationMs = 0;
         try (AudioInputStream stream = AudioSystem.getAudioInputStream(
                 new BufferedInputStream(audioUrl.openStream()))) {
-            // 必须使用这个 URL 版本的方法，因为它不需要文件系统访问
             AudioFileFormat fileFormat = AudioSystem.getAudioFileFormat(audioUrl);
             AudioFormat format = fileFormat.getFormat();
             long frameLength = fileFormat.getFrameLength();

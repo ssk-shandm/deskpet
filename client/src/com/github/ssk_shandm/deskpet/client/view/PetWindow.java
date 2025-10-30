@@ -130,7 +130,7 @@ public class PetWindow extends JWindow {
         this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
 
         // 初始化计时器
-        this.autoSpeechTimer = new Timer(10000, e -> sayRandomly()); // 2分钟
+        this.autoSpeechTimer = new Timer(180000, e -> sayRandomly()); // 3分钟
         this.autoSpeechTimer.setRepeats(true);
 
         this.favorabilityTimer = new Timer(300000, e -> { // 5分钟
@@ -899,9 +899,9 @@ public class PetWindow extends JWindow {
         logger.info("活塞模式切换: " + isPistonMode);
     }
 
-    // ===============
+    // ==================
     // 状态与计时器管理
-    // ===============
+    // ==================
     /**
      * 重置用户闲置计时器 (在任何用户互动时调用)
      */
@@ -916,7 +916,9 @@ public class PetWindow extends JWindow {
         }
         // 重启闲置计时器
         inactivityTimer.restart();
-        logger.info("用户互动，重置闲置计时器。");
+        autoSpeechTimer.restart();
+
+        logger.info("用户互动，重置闲置和自动说话计时器。");
     }
 
     /**

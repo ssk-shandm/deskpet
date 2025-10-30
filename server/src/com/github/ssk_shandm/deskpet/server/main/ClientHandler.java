@@ -135,7 +135,7 @@ public class ClientHandler implements Runnable {
             case "GET_DURATIONS":
                 // 客户端请求所有缓存的时长
                 Map<String, Long> durations = audioService.getDurations(); //
-                // 将 Map 编码为 "key1,ms1;key2,ms2" 格式
+                // Map 编码
                 StringBuilder sb = new StringBuilder("DURATIONS_DATA:");
                 for (Map.Entry<String, Long> entry : durations.entrySet()) {
                     sb.append(entry.getKey()).append(",").append(entry.getValue()).append(";");

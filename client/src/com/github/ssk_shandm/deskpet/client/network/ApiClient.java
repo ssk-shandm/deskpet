@@ -51,7 +51,7 @@ public class ApiClient {
      * 获取宠物数据
      */
     public Map<String, String> getPetData() {
-        String response = sendRequest("GET"); //
+        String response = sendRequest("GET"); 
         // PET_DATA:seia,100,0
         return parseResponse(response, "PET_DATA", new String[]{"name", "likeability", "lastClickTime"});
     }
@@ -60,9 +60,7 @@ public class ApiClient {
      * 发送点击
      */
     public Map<String, String> sendClick() {
-        String response = sendRequest("CLICK"); //
-        // CLICK_RESPONSE:SUCCESS,100,123456
-        // CLICK_RESPONSE:COOLDOWN,50000
+        String response = sendRequest("CLICK"); 
         return parseResponse(response, "CLICK_RESPONSE", new String[]{"status", "likeability", "lastClickTime"});
     }
 
@@ -70,19 +68,17 @@ public class ApiClient {
      * 更新好感度
      */
     public Map<String, String> updateLikeability(int changeAmount) {
-        String response = sendRequest("UPDATE_LIKEABILITY:" + changeAmount); //
-        // UPDATE_LIKEABILITY_RESPONSE:SUCCESS,95
+        String response = sendRequest("UPDATE_LIKEABILITY:" + changeAmount); 
         return parseResponse(response, "UPDATE_LIKEABILITY_RESPONSE", new String[]{"status", "newLikeability"});
     }
     
     /**
-     * [!! 新增 !!]
      * 从服务器获取所有已缓存的音频时长
      * @return Map<String, Long>
      */
     public Map<String, Long> getAudioDurations() {
         logger.info("正在从服务器获取音频时长缓存...");
-        String response = sendRequest("GET_DURATIONS"); //
+        String response = sendRequest("GET_DURATIONS"); 
         
         // 响应格式: DURATIONS_DATA:key1,ms1;key2,ms2;
         if (response.startsWith("DURATIONS_DATA:")) {
