@@ -129,7 +129,7 @@ public class PetWindow extends JWindow {
         this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
 
         // 初始化计时器
-        this.autoSpeechTimer = new Timer(120000, e -> sayRandomly()); // 2分钟
+        this.autoSpeechTimer = new Timer(10000, e -> sayRandomly()); // 2分钟
         this.autoSpeechTimer.setRepeats(true);
 
         this.favorabilityTimer = new Timer(300000, e -> { // 5分钟
@@ -257,27 +257,32 @@ public class PetWindow extends JWindow {
             }
         });
 
-        // 好感度测试
-        cheatLikeabilityItem = new JMenuItem("likeability test:");
-        cheatLikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        cheatLikeabilityItem.setForeground(Color.ORANGE);
-        cheatLikeabilityItem.addActionListener(e -> {
-            String input = JOptionPane.showInputDialog(PetWindow.this, "输入新的好感度:", currentLikeability);
-            if (input == null)
-                return;
-            try {
-                int newLikeability = Integer.parseInt(input);
-                newLikeability = Math.max(0, Math.min(100, newLikeability)); // 限制 0-100
-                int difference = newLikeability - currentLikeability;
-                if (difference == 0)
-                    return;
-                logger.info("通过菜单请求好感度变化: " + difference);
-                updateLikeabilityAsync(difference);
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(PetWindow.this, "请输入有效的数字", "输入错误", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        contextMenu.add(cheatLikeabilityItem);
+        /**
+         * 实验功能：好感度修改测试
+         */
+        // // 好感度测试
+        // cheatLikeabilityItem = new JMenuItem("likeability test:");
+        // cheatLikeabilityItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        // cheatLikeabilityItem.setForeground(Color.ORANGE);
+        // cheatLikeabilityItem.addActionListener(e -> {
+        // String input = JOptionPane.showInputDialog(PetWindow.this, "输入新的好感度:",
+        // currentLikeability);
+        // if (input == null)
+        // return;
+        // try {
+        // int newLikeability = Integer.parseInt(input);
+        // newLikeability = Math.max(0, Math.min(100, newLikeability)); // 限制 0-100
+        // int difference = newLikeability - currentLikeability;
+        // if (difference == 0)
+        // return;
+        // logger.info("通过菜单请求好感度变化: " + difference);
+        // updateLikeabilityAsync(difference);
+        // } catch (NumberFormatException ex) {
+        // JOptionPane.showMessageDialog(PetWindow.this, "请输入有效的数字", "输入错误",
+        // JOptionPane.ERROR_MESSAGE);
+        // }
+        // });
+        // contextMenu.add(cheatLikeabilityItem);
 
         // 拖放文件提示
         MoveFileMenuItem = new JMenuItem("<html>拖动桌面文件给我能提升好感!<br>试试'街头不良少年第1卷'!</html>");
@@ -688,9 +693,9 @@ public class PetWindow extends JWindow {
         }
     }
 
-    // =========
+    // ============
     // 语音和气泡
-    // =========
+    // ============
 
     /**
      * 触发宠物说话 (播放语音和显示气泡)
@@ -712,21 +717,22 @@ public class PetWindow extends JWindow {
 
         // 计算气泡显示时长
         long audioDurationMs = audioManager.getAudioDurationMs(audioKey);
-        long textDurationMs = 2500 + (long) (text.length() * 200); // 估算阅读时间
         long finalDurationMs;
 
         if (audioDurationMs > 0) {
-            // 优先使用音频的时长
+            // 音频时长有效，严格使用音频时长
             finalDurationMs = audioDurationMs;
         } else {
-            // 如果音频时长无效，则回退到文本估算时长
-            finalDurationMs = textDurationMs;
-            logger.warning("音频 " + audioKey + " 时长为 0, 仅按文本计算时长。");
+            // 音频时长无效，回退到文本估算时长
+            long textDurationMs = 2500 + (long) (text.length() * 200); // 估算阅读时间
+            // 仅在回退时，使用 2.5 秒保底
+            finalDurationMs = Math.max(textDurationMs, 2500);
+            logger.warning("音频 " + audioKey + " 时长为 0, 按文本计算时长: " + finalDurationMs + "ms");
         }
-        finalDurationMs = Math.max(finalDurationMs, 2500); // 至少显示 2.5 秒
 
         // 计算气泡位置
         Point windowLocation = getLocationOnScreen();
+
         // 锚点Y = 窗口Y + (视觉偏移 * 缩放)
         int visualPetTopY = windowLocation.y + (int) (PET_VISUAL_TOP_OFFSET * scale);
 
