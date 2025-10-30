@@ -8,32 +8,39 @@ import javax.swing.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * 客户端主入口
+ * 负责初始化 Look and Feel 并启动 PetWindow。
+ */
 public class Main {
     private static final Logger logger = Logger.getLogger(Main.class.getName());
 
+    /**
+     * 程序主方法
+     * @param args 命令行参数 (未使用)
+     */
     public static void main(String[] args) {
-        // 将 GUI 相关操作放入 EDT
+        // 确保所有 GUI 操作都在事件调度线程 (EDT) 中执行
         SwingUtilities.invokeLater(() -> {
-            // 设置 Swing 外观
+            
+            // 设置 Swing 外观 (FlatLaf)
             try {
                 UIManager.setLookAndFeel(new FlatLightLaf());
                 logger.info("FlatLaf Look and Feel 设置成功。");
 
+                // 允许在禁用的组件上显示工具提示 (ToolTip)
                 UIManager.put("ToolTip.showOnDisabledComponents", true);
-                
+
             } catch (UnsupportedLookAndFeelException e) {
                 logger.log(Level.SEVERE, "无法设置 FlatLaf 外观", e);
-                // 可以选择显示警告，但通常程序仍能使用默认外观运行
-                // JOptionPane.showMessageDialog(null, "无法加载外观样式，将使用默认外观。", "外观警告", JOptionPane.WARNING_MESSAGE);
+                // 注: 即使失败, 程序仍能使用 Java 默认外观运行
             }
 
-            // 直接创建 PetWindow 实例
-            // PetWindow 的构造函数内部会负责异步加载所需的数据
+            // 创建 PetWindow 实例
+            // PetWindow 的构造函数将处理后续所有加载
             logger.info("正在创建 PetWindow 实例...");
             new PetWindow();
             logger.info("PetWindow 实例已创建。");
         });
     }
-
-    // showErrorAndExit 方法不再需要，因为 PetWindow 自己处理错误
 }

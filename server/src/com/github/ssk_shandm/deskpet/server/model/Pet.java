@@ -1,30 +1,37 @@
 package com.github.ssk_shandm.deskpet.server.model;
 
+/**
+ * 宠物模型 (POJO)
+ * 对应 "pets" 数据库表。
+ */
 public class Pet {
 
     private int id;
     private String name;
-    // private String status;
-    private int likeability;
-    private long lastClickTime;
+    private int likeability; // 好感度
+    private long lastClickTime; // 上次点击时间 (毫秒时间戳)
 
+    /**
+     * 默认构造函数
+     */
     public Pet() {
     }
 
     /**
-     * @param id     id
-     * @param name   名字
-     * @param likeability 好感度
-     * @param status 状态
+     * 完整构造函数
+     * @param id            宠物 ID
+     * @param name          名字
+     * @param likeability   好感度
      * @param lastClickTime 上次点击时间
      */
-    public Pet(int id, String name, /* String status, */ int likeability, long lastClickTime) {
+    public Pet(int id, String name, int likeability, long lastClickTime) {
         this.id = id;
         this.name = name;
-        // this.status = status;
         this.likeability = likeability;
         this.lastClickTime = lastClickTime;
     }
+
+    // Getters 和 Setters
 
     public int getId() {
         return id;
@@ -42,18 +49,10 @@ public class Pet {
         this.name = name;
     }
 
-    /* public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    } */
-
-    // 好感度
     public int getLikeability() {
         return likeability;
     }
+
     public void setLikeability(int likeability) {
         this.likeability = likeability;
     }

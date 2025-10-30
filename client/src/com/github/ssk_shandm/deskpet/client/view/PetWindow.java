@@ -438,6 +438,7 @@ public class PetWindow extends JWindow {
     // ==================================
     /**
      * 加载优先动画 (如 idle, happy, pickup)
+     * 
      * @param petName      宠物名
      * @param favorability 当前好感度
      * @return 加载到的优先动画Map
@@ -496,6 +497,7 @@ public class PetWindow extends JWindow {
 
     /**
      * 加载单个动画的所有帧 (带缩放)
+     * 
      * @param petName       宠物名 (用于路径)
      * @param animationName 动画名 (如 "idle_normal")
      * @return 帧列表 (BufferedImage List), 失败返回 null
@@ -553,7 +555,8 @@ public class PetWindow extends JWindow {
 
     /**
      * 加载指定列表中的动画
-     * * @param petName        宠物名
+     * * @param petName 宠物名
+     * 
      * @param animationNames 动画名列表
      * @return 加载到的动画 Map
      */
@@ -692,7 +695,8 @@ public class PetWindow extends JWindow {
     /**
      * 触发宠物说话 (播放语音和显示气泡)
      * * @param audioKey 语音文件的键 (如 "ch0070_...")
-     * @param text     气泡上显示的文字
+     * 
+     * @param text 气泡上显示的文字
      */
     public void say(String audioKey, String text) {
         // 播放音频 (如果不静音)
@@ -822,12 +826,12 @@ public class PetWindow extends JWindow {
      * 执行特殊互动 (播放动画, 加好感, 进入冷却)
      */
     private void performSpecialAction() {
-        //  进入冷却
+        // 进入冷却
         isSpecialActionOnCooldown = true;
         specialActionMenuItem.setEnabled(false);
         specialActionMenuItem.setText("特殊互动 (冷却中...)");
 
-        //  执行动作
+        // 执行动作
         logger.info("执行特殊互动！播放 " + SPECIAL_ACTION_ANIMATION + ", 好感度 +" + SPECIAL_ACTION_LIKEABILITY_GAIN);
         playAnimationOnce(SPECIAL_ACTION_ANIMATION);
         sayForKey(SPECIAL_ACTION_AUDIO);
@@ -1087,6 +1091,7 @@ public class PetWindow extends JWindow {
                         switch (status) {
                             case "SUCCESS":
                                 playAnimationOnce("happy");
+                                sayForKey("ch0070_eventmission_login_2");
                                 try {
                                     currentLikeability = Integer.parseInt(response.get("likeability"));
                                     lastClickTimeFromServer = Long.parseLong(response.get("lastClickTime"));

@@ -1,31 +1,34 @@
 package com.github.ssk_shandm.deskpet.server.model;
 
-// import java.sql.Timestamp;
-
+/**
+ * 用户模型 (POJO)
+ * 对应 "users" 数据库表。
+ */
 public class User {
 
     private int id;
     private String username;
-    // private String password;
-    // private Timestamp createdAt;
-    private int points;
+    private int points; // 积分
 
+    /**
+     * 默认构造函数
+     */
     public User() {
     }
 
     /**
+     * 完整构造函数
      * @param id       用户ID
      * @param username 用户名
+     * @param points   积分
      */
-    // public User(int id, String username, String password, Timestamp createdAt,
-    // int points) {
     public User(int id, String username, int points) {
         this.id = id;
         this.username = username;
-        // this.password = password;
-        // this.createdAt = createdAt;
         this.points = points;
     }
+
+    // Getters 和 Setters
 
     public int getId() {
         return id;
@@ -42,22 +45,6 @@ public class User {
     public void setUsername(String username) {
         this.username = username;
     }
-
-    // public String getPassword() {
-    // return password;
-    // }
-
-    // public void setPassword(String password) {
-    // this.password = password;
-    // }
-
-    // public Timestamp getCreatedAt() {
-    // return createdAt;
-    // }
-
-    // public void setCreatedAt(Timestamp createdAt) {
-    // this.createdAt = createdAt;
-    // }
 
     public int getPoints() {
         return points;
