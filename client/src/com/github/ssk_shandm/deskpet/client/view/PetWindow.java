@@ -716,10 +716,10 @@ public class PetWindow extends JWindow {
         long finalDurationMs;
 
         if (audioDurationMs > 0) {
-            // 取音频时长和文字时长中 *较大* 的一个
-            finalDurationMs = Math.max(audioDurationMs, textDurationMs);
+            // 优先使用音频的时长
+            finalDurationMs = audioDurationMs;
         } else {
-            // 仅使用文字时长
+            // 如果音频时长无效，则回退到文本估算时长
             finalDurationMs = textDurationMs;
             logger.warning("音频 " + audioKey + " 时长为 0, 仅按文本计算时长。");
         }
