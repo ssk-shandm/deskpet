@@ -1,6 +1,9 @@
 package com.github.ssk_shandm.deskpet.client.view;
 
 import javax.sound.sampled.*;
+
+import com.github.ssk_shandm.deskpet.client.network.ApiClient;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -27,19 +30,25 @@ public class AudioManager {
 
     private boolean isMuted = false;
     private float currentVolume = 0.3f; // 0.0f (静音) - 1.0f (最大)
+    private final ApiClient apiClient;
 
     /**
      * 构造函数, 初始化时自动加载语音数据。
      */
-    public AudioManager() {
-        loadSpeechData("/audio/BA/seia/"); // 加载指定路径资源
+    public AudioManager(ApiClient apiClient) {
+        this.apiClient = apiClient;
+
+        // 1. 从服务器获取缓存
+        Map<String, Long> cachedDurations = apiClient.getAudioDurations();
+
+        // 2. 加载语音数据 (传入缓存)
+        loadSpeechData("/audio/BA/seia/", cachedDurations);
         logger.info("音频管理器已初始化。");
     }
 
-    // =====================
-    //  公共 API：播放与控制
-    // =====================
-
+    // ======================
+    // 公共 API：播放与控制
+    // =======================
     /**
      * 播放指定的音频
      * 
@@ -141,18 +150,16 @@ public class AudioManager {
     }
 
     /**
-     * 获取指定 key 的音频剪辑的时长 (毫秒)
      * 
-     * @param key 音频的键
-     * @return 时长 (毫秒), 如果找不到则返回 0
+     * 现在只从缓存的 SpeechPair 中读取
      */
     public long getAudioDurationMs(String key) {
         SpeechPair pair = speechMap.get(key);
-        if (pair != null && pair.getAudioClip() != null) {
-            // Microsecond (微秒) -> Millisecond (毫秒)
-            return pair.getAudioClip().getMicrosecondLength() / 1000;
+        if (pair != null) {
+            // 直接返回加载时缓存的时长
+            return pair.getDurationMs();
         }
-        logger.warning("请求 " + key + " 的时长, 但未找到 Clip。");
+        logger.warning("请求 " + key + " 的时长, 但未找到 SpeechPair。");
         return 0;
     }
 
@@ -161,14 +168,18 @@ public class AudioManager {
     // =======================
 
     /**
+     * [!! 已修改 !!]
      * 核心加载方法：
-     * 读取 speech.properties 清单
-     * 遍历清单, 加载配对的 .wav 和 .txt
-     * 
-     * @param resourcePath 资源所在的基础路径 (例如 "/audio/BA/seia/")
+     * 1. 检查服务器缓存
+     * 2. 如果未命中，本地计算
+     * 3. 异步上传新计算的数据
      */
-    private void loadSpeechData(String resourcePath) {
-        //  加载清单文件 (speech.properties)
+    private void loadSpeechData(String resourcePath, Map<String, Long> cachedDurations) {
+        logger.info("开始加载语音数据... 已有 " + cachedDurations.size() + " 条缓存。");
+        // 用于存储本次新计算的时长，以便回传给服务器
+        Map<String, Long> newDurationsToUpload = new HashMap<>();
+
+        // 加载清单文件 (speech.properties)
         Properties props = new Properties();
         String propertiesPath = resourcePath + "speech.properties";
         List<String> keysToLoad = new ArrayList<>();
@@ -188,11 +199,6 @@ public class AudioManager {
             return;
         }
 
-        if (keysToLoad.isEmpty()) {
-            logger.warning("语音清单 " + propertiesPath + " 为空。");
-            return;
-        }
-
         // 遍历清单, 加载配对
         for (String key : keysToLoad) {
             key = key.trim();
@@ -200,14 +206,30 @@ public class AudioManager {
                 continue;
 
             try {
-                // 加载 .wav 音频
                 String audioPath = resourcePath + key + ".wav";
                 URL audioUrl = getClass().getResource(audioPath);
                 if (audioUrl == null) {
-                    logger.warning("找不到音频文件: " + audioPath + "，跳过此配对。");
+                    logger.warning("找不到音频文件: " + audioPath);
                     continue;
                 }
 
+                long durationMs = 0;
+
+                // [!! 自动化逻辑的核心 !!]
+                if (cachedDurations.containsKey(key)) {
+                    // 1. 下一次打开：直接从缓存读取
+                    durationMs = cachedDurations.get(key);
+                } else {
+                    // 2. 第一次打开 (或新音频)：本地计算
+                    logger.info("未命中缓存: " + key + "。 正在本地计算时长...");
+                    durationMs = calculateDurationReliably(audioUrl); // 调用辅助方法
+
+                    if (durationMs > 0) {
+                        newDurationsToUpload.put(key, durationMs); // 标记，以便稍后上传
+                    }
+                }
+
+                // 加载 .wav 音频 (Clip)
                 Clip clip;
                 try (AudioInputStream audioStream = AudioSystem.getAudioInputStream(
                         new BufferedInputStream(audioUrl.openStream()))) {
@@ -228,16 +250,48 @@ public class AudioManager {
                     textContent = "..."; // 提供备用
                 }
 
-                // 创建并存储
-                SpeechPair pair = new SpeechPair(key, clip, textContent);
+                // [!! 修正 !!] 使用包含时长的构造函数
+                SpeechPair pair = new SpeechPair(key, clip, textContent, durationMs);
                 speechMap.put(key, pair);
                 keyList.add(key);
-                logger.info("成功加载语音配对: " + key);
+                logger.fine("成功加载语音配对: " + key);
 
             } catch (Exception e) {
                 logger.log(Level.SEVERE, "加载配对 '" + key + "' 失败", e);
             }
         }
+
+        // [!! 自动化逻辑的收尾 !!]
+        // 异步将本次新计算的条目批量写入数据库
+        if (!newDurationsToUpload.isEmpty()) {
+            logger.info("发现 " + newDurationsToUpload.size() + " 条新音频，正在后台上传到服务器...");
+            apiClient.saveAudioDurationsAsync(newDurationsToUpload);
+        }
+    }
+
+    /**
+     * 辅助方法：使用 AudioFileFormat (可靠) 计算时长
+     */
+    private long calculateDurationReliably(URL audioUrl) {
+        long durationMs = 0;
+        try (AudioInputStream stream = AudioSystem.getAudioInputStream(
+                new BufferedInputStream(audioUrl.openStream()))) {
+            // 必须使用这个 URL 版本的方法，因为它不需要文件系统访问
+            AudioFileFormat fileFormat = AudioSystem.getAudioFileFormat(audioUrl);
+            AudioFormat format = fileFormat.getFormat();
+            long frameLength = fileFormat.getFrameLength();
+            float frameRate = format.getFrameRate();
+
+            if (frameLength > 0 && frameRate > 0) {
+                // (帧数 * 1000.0) / 帧率 = 毫秒
+                durationMs = (long) ((frameLength * 1000.0) / frameRate);
+            } else {
+                logger.warning("无法通过 AudioFileFormat 计算 " + audioUrl.getFile() + " 的时长 (frameLength/frameRate 为 0)");
+            }
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "计算 " + audioUrl.getFile() + " 时长失败", e);
+        }
+        return durationMs;
     }
 
     /**

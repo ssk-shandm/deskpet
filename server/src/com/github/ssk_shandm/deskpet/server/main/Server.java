@@ -3,6 +3,7 @@ package com.github.ssk_shandm.deskpet.server.main;
 import com.github.ssk_shandm.deskpet.server.dao.DatabaseUtil;
 import com.github.ssk_shandm.deskpet.server.service.UserService;
 import com.github.ssk_shandm.deskpet.server.service.PetService;
+import com.github.ssk_shandm.deskpet.server.service.AudioService; // [!! 新增导入 !!]
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -26,12 +27,13 @@ public class Server {
     public static void main(String[] args) {
         
         // 初始化数据库 (检查或创建 .db 文件和表)
-        DatabaseUtil.initializeDatabase();
+        DatabaseUtil.initializeDatabase(); //
         logger.info("--- 数据库检查完成 ---");
 
         // 实例化服务 (Service 层)
-        UserService userService = new UserService();
-        PetService petService = new PetService();
+        UserService userService = new UserService(); //
+        PetService petService = new PetService(); //
+        AudioService audioService = new AudioService(); // [!! 新增 !!]
 
         // 启动服务器套接字
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -43,7 +45,8 @@ public class Server {
                 logger.info("接收到新的客户端连接: " + clientSocket.getRemoteSocketAddress());
 
                 // 为新客户端创建一个线程来处理
-                ClientHandler clientHandler = new ClientHandler(clientSocket, userService, petService);
+                // [!! 修改 !!] 将 audioService 传入
+                ClientHandler clientHandler = new ClientHandler(clientSocket, userService, petService, audioService); //
                 new Thread(clientHandler, "Client-" + clientSocket.getPort()).start();
             }
 

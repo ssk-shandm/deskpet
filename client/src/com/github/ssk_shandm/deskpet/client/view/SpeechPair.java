@@ -10,17 +10,21 @@ public class SpeechPair {
     private final String key;
     private final Clip audioClip;
     private final String text;
+    private final long durationMs;
 
     /**
      * 构造函数
-     * @param key 唯一标识键
-     * @param audioClip 预加载的音频剪辑
-     * @param text 对应的显示文本
+     * 
+     * @param key        唯一标识键
+     * @param audioClip  预加载的音频剪辑
+     * @param text       对应的显示文本
+     * @param durationMs 音频的毫秒时长
      */
-    public SpeechPair(String key, Clip audioClip, String text) {
+    public SpeechPair(String key, Clip audioClip, String text, long durationMs) {
         this.key = key;
         this.audioClip = audioClip;
         this.text = text;
+        this.durationMs = durationMs;
     }
 
     /**
@@ -42,5 +46,12 @@ public class SpeechPair {
      */
     public String getText() {
         return text;
+    }
+
+    /**
+     * @return 音频的毫秒时长 (缓存的)
+     */
+    public long getDurationMs() {
+        return durationMs;
     }
 }

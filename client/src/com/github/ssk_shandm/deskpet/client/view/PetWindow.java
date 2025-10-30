@@ -125,7 +125,8 @@ public class PetWindow extends JWindow {
 
         // 初始化核心组件
         createCursors(); // 初始化自定义光标
-        this.audioManager = new AudioManager();
+        // 把 apiClient 传给 AudioManager
+        this.audioManager = new AudioManager(this.apiClient);
         this.speechBubble = new SpeechBubble(this, getGraphicsConfiguration());
 
         // 初始化计时器
@@ -576,9 +577,9 @@ public class PetWindow extends JWindow {
         return loadedAnims;
     }
 
-    // ===========
+    // =============
     // 动画播放控制
-    // ===========
+    // =============
     /**
      * 播放动画 (循环)
      * * @param name 动画名称
@@ -720,12 +721,12 @@ public class PetWindow extends JWindow {
         long finalDurationMs;
 
         if (audioDurationMs > 0) {
-            // 音频时长有效，严格使用音频时长
+            // 音频时长有效, 严格使用音频时长
             finalDurationMs = audioDurationMs;
         } else {
-            // 音频时长无效，回退到文本估算时长
-            long textDurationMs = 2500 + (long) (text.length() * 200); // 估算阅读时间
-            // 仅在回退时，使用 2.5 秒保底
+            // 音频时长无效 (0), 回退到文本估算时长
+            long textDurationMs = 2500 + (long) (text.length() * 200);
+            // 仅在回退时, 使用 2.5 秒保底
             finalDurationMs = Math.max(textDurationMs, 2500);
             logger.warning("音频 " + audioKey + " 时长为 0, 按文本计算时长: " + finalDurationMs + "ms");
         }
@@ -783,9 +784,9 @@ public class PetWindow extends JWindow {
         logger.warning("sayRandomly: 尝试 " + maxAttempts + " 次均抽到事件语音，跳过。");
     }
 
-    // ===========================
+    // ==============================
     // 交互逻辑 (API, 道具, 特殊动作)
-    // ===========================
+    // ==============================
 
     /**
      * 异步向服务器发送更新好感度的请求
@@ -896,13 +897,6 @@ public class PetWindow extends JWindow {
             pistonMenuItem.setText("我推!");
         }
         logger.info("活塞模式切换: " + isPistonMode);
-    }
-
-    /**
-     * (保留) 拖动文件模式 (目前由 PetDropTargetListener 实现)
-     */
-    private void toggleMoveFileMode() {
-        // 此功能现在由 PetDropTargetListener 自动处理
     }
 
     // ===============
@@ -1108,14 +1102,14 @@ public class PetWindow extends JWindow {
                                 break;
                             case "COOLDOWN":
                                 try {
-                                    long remainingTime = Long.parseLong(response.get("remainingTime"));
-                                    long totalSeconds = remainingTime / 1000;
-                                    long hours = totalSeconds / 3600;
-                                    long minutes = (totalSeconds % 3600) / 60;
-                                    long seconds = totalSeconds % 60;
-                                    JOptionPane.showMessageDialog(PetWindow.this,
-                                            String.format("需要等待 %d 小时 %d 分钟 %d 秒后才能再次互动。", hours, minutes, seconds),
-                                            "冷却中", JOptionPane.INFORMATION_MESSAGE);
+                                    // long remainingTime = Long.parseLong(response.get("remainingTime"));
+                                    // long totalSeconds = remainingTime / 1000;
+                                    // long hours = totalSeconds / 3600;
+                                    // long minutes = (totalSeconds % 3600) / 60;
+                                    // long seconds = totalSeconds % 60;
+                                    // JOptionPane.showMessageDialog(PetWindow.this,
+                                    // String.format("需要等待 %d 小时 %d 分钟 %d 秒后才能再次互动。", hours, minutes, seconds),
+                                    // "冷却中", JOptionPane.INFORMATION_MESSAGE);
                                 } catch (Exception ex) {
                                     logger.log(Level.SEVERE, "解析冷却时间失败", ex);
                                     JOptionPane.showMessageDialog(PetWindow.this,

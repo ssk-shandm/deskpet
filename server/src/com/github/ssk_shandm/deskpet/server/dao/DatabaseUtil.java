@@ -16,32 +16,30 @@ public class DatabaseUtil {
     private static final String URL = "jdbc:sqlite:deskpet.db";
 
     /**
-     * 程序首次运行时，用于初始化数据库和表
-     * 如果 "deskpet.db" 文件已存在，则跳过。
+     * 程序运行时，检查并确保所有表都已创建。
      */
     public static void initializeDatabase() {
         File dbFile = new File("deskpet.db");
         logger.info("数据库文件路径: " + dbFile.getAbsolutePath());
 
-        if (dbFile.exists()) {
-            logger.info("数据库文件已存在，无需初始化。");
-            return;
-        }
-
-        logger.info("首次运行，正在初始化数据库...");
-
-        // 创建 users 表 (简化版)
+        // 创建 users 表
         String createUserTableSql = "CREATE TABLE IF NOT EXISTS users (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "username TEXT NOT NULL UNIQUE" +
                 ");";
 
-        // 创建 pets 表 (简化版)
+        // 创建 pets 表
         String createPetTableSql = "CREATE TABLE IF NOT EXISTS pets (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL UNIQUE," +
                 "likeability INTEGER DEFAULT 100," +
                 "last_click_time BIGINT DEFAULT 0" +
+                ");";
+
+        // 创建 audio_durations 表
+        String createAudioTableSql = "CREATE TABLE IF NOT EXISTS audio_durations (" +
+                "key TEXT PRIMARY KEY," +
+                "duration_ms INTEGER NOT NULL" +
                 ");";
 
         // 插入默认数据
@@ -50,17 +48,28 @@ public class DatabaseUtil {
 
         // 使用 try-with-resources 自动关闭连接和 Statement
         try (Connection cc = getConnection();
-             Statement stmt = cc.createStatement()) {
-            
-            // 执行建表
+                Statement stmt = cc.createStatement()) {
+
+            // 执行建表 (CREATE TABLE IF NOT EXISTS 是安全的)
             stmt.execute(createUserTableSql);
             stmt.execute(createPetTableSql);
-            logger.info("数据库表创建成功！");
+            stmt.execute(createAudioTableSql); 
+            logger.info("数据库表检查/创建成功！");
 
-            // 插入默认数据
-            stmt.execute(insertDefaultPetSql);
-            stmt.execute(insertDefaultUserSql);
-            logger.info("默认数据插入成功！");
+            // 检查 pets 表是否为空
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM pets")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    stmt.execute(insertDefaultPetSql);
+                    logger.info("默认宠物数据插入成功！");
+                }
+            }
+            // 检查 users 表是否为空
+            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM users")) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    stmt.execute(insertDefaultUserSql);
+                    logger.info("默认用户数据插入成功！");
+                }
+            }
 
         } catch (SQLException e) {
             logger.log(Level.SEVERE, "数据库初始化失败", e);
@@ -69,7 +78,7 @@ public class DatabaseUtil {
 
     /**
      * 获取一个到 SQLite 数据库的连接
-     * @return Connection 对象, 如果失败则返回 null
+     * * @return Connection 对象, 如果失败则返回 null
      */
     public static Connection getConnection() {
         Connection cc = null;
