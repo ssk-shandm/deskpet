@@ -28,7 +28,7 @@ public class PetDao {
                     pet = new Pet();
                     pet.setId(rs.getInt("id"));
                     pet.setName(rs.getString("name"));
-                    pet.setStatus(rs.getString("status"));
+                    // pet.setStatus(rs.getString("status"));
                     pet.setLikeability(rs.getInt("likeability"));
                     pet.setLastClickTime(rs.getLong("last_click_time"));
                 }
@@ -46,7 +46,7 @@ public class PetDao {
         String sql = "UPDATE pets SET name = ?, status = ?, likeability = ?, last_click_time = ? WHERE id = 1";
 
         // 调试：数据库更新
-        System.out.println("[PetDao Test] Name=" + pet.getName() + ", Status=" + pet.getStatus() + ", Likeability="
+        System.out.println("[PetDao Test] Name=" + pet.getName() + ", Status=" + /* pet.getStatus() + */", Likeability="
                 + pet.getLikeability() + ", LastClickTime=" + pet.getLastClickTime());
         System.out.flush();
 
@@ -55,7 +55,7 @@ public class PetDao {
 
             // 更新参数
             pstmt.setString(1, pet.getName());
-            pstmt.setString(2, pet.getStatus());
+            // pstmt.setString(2, pet.getStatus());
             pstmt.setInt(3, pet.getLikeability());
             pstmt.setLong(4, pet.getLastClickTime());
 
@@ -85,7 +85,7 @@ public class PetDao {
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, pet.getName());
-            pstmt.setString(2, pet.getStatus());
+            // pstmt.setString(2, pet.getStatus());
             pstmt.setInt(3, pet.getLikeability());
             pstmt.setLong(4, pet.getLastClickTime());
 

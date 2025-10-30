@@ -48,7 +48,7 @@ public class ApiClient {
         if (response != null && response.startsWith("PET_DATA:")) {
             try {
                 String[] data = response.substring("PET_DATA:".length()).split(",");
-                if (data.length >= 3) { 
+                if (data.length >= 3) {
                     Map<String, String> petInfo = new HashMap<>();
                     petInfo.put("name", data[0]);
                     petInfo.put("likeability", data[1]);

@@ -3,78 +3,77 @@ package com.github.ssk_shandm.deskpet.client.view;
 import javax.swing.*;
 import java.awt.*;
 
+/**
+ * 语音气泡窗口 (JWindow)
+ * 负责显示一个带圆角的、自定义背景的文本气泡。
+ */
 public class SpeechBubble extends JWindow {
 
     private final Window parentWindow; // 父窗口 (PetWindow)
-    private final JLabel textLabel;
-    private Timer hideTimer;
+    private final JLabel textLabel; // 显示文本的标签
+    private Timer hideTimer; // 自动隐藏计时器
 
-    // (新增) 定义气泡的样式
-    private final Color backgroundColor = new Color(255, 255, 220); // 气泡背景色
-    private final Color borderColor = Color.BLACK; // 气泡边框色
-    private final int arcSize = 20; // 圆角的大小 (像素)
+    // 气泡样式常量
+    private final Color backgroundColor = new Color(255, 255, 220); // 背景色
+    private final Color borderColor = Color.BLACK; // 边框色
+    private final int arcSize = 20; // 圆角大小 (px)
 
+    /**
+     * 构造函数
+     * @param parent 父窗口 (PetWindow)
+     * @param gc 图形配置 (用于透明窗口)
+     */
     public SpeechBubble(Window parent, GraphicsConfiguration gc) {
-
-        // (关键) 使用带有 gc 的 JWindow 构造函数
+        // 使用带 gc 的构造函数以支持透明
         super(parent, gc);
-
-        getRootPane().setOpaque(false);
-
         this.parentWindow = parent;
 
-        // --- 窗口基础设置 ---
-        setBackground(new Color(0, 0, 0, 0)); // 1. 窗口背景必须透明
+        // 窗口基础设置
+        getRootPane().setOpaque(false); // 根面板透明
+        setBackground(new Color(0, 0, 0, 0)); // 窗口背景透明
         setLayout(new BorderLayout());
         setAlwaysOnTop(true);
 
-        // --- (修改) 使用自定义的 BubblePanel ---
+        // 使用自定义的 BubblePanel 作为内容面板
         BubblePanel bubblePanel = new BubblePanel();
         bubblePanel.setLayout(new BorderLayout());
-        // (注意: 我们不再设置 bubblePanel 的 setBackground 或 setBorder)
 
+        // 配置 JLabel
         textLabel = new JLabel();
         textLabel.setFont(new Font("Microsoft YaHei", Font.PLAIN, 14));
         textLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15)); // 内边距
-
-        // (新增) 标签也必须透明, 否则它会画一个矩形背景
-        textLabel.setOpaque(false);
-        // (可选) 设置前景色
+        textLabel.setOpaque(false); // 标签本身也必须透明
         textLabel.setForeground(Color.BLACK);
 
+        // 组装
         bubblePanel.add(textLabel, BorderLayout.CENTER);
-
         setContentPane(bubblePanel);
 
-        // 初始化计时器 (一次性触发)
+        // 初始化计时器
         hideTimer = new Timer(3000, e -> setVisible(false));
-        hideTimer.setRepeats(false); // 只触发一次
+        hideTimer.setRepeats(false); // 一次性触发
     }
 
     /**
-     * 显示气泡 (方法签名来自上次修改)
-     * 
+     * 显示气泡
      * @param text       要显示的文字
-     * @param durationMs 显示时长
-     * @param anchorY    (新增) 锚点 (宠物头顶) 的屏幕 Y 坐标
+     * @param durationMs 显示时长 (毫秒)
+     * @param anchorY    锚点 (宠物头顶) 的屏幕 Y 坐标
      */
     public void showBubble(String text, int durationMs, int anchorY) {
         textLabel.setText(text);
 
-        // (TODO: 下一步根据 bubbleScale 调整字体和大小)
-        // Font scaledFont = textLabel.getFont().deriveFont((float)(14 * bubbleScale));
-        // textLabel.setFont(scaledFont);
+        // 打包以获取最佳大小
+        pack();
 
-        pack(); // public class SpeechBubble extends JWindow
-
-        // 计算位置 (显示在宠物上方)
+        // 计算位置
         Point parentLocation = parentWindow.getLocation();
 
-        // X 坐标 = 居中
+        // X 坐标: 在父窗口上居中
         int x = parentLocation.x + (parentWindow.getWidth() / 2) - (getWidth() / 2);
-
-        // Y 坐标 = 锚点 Y - 气泡高度 - 10
-        int y = anchorY - getHeight() - 10; // 在锚点上方 10 像素
+        
+        // Y 坐标: 在锚点 Y 之上 (留出 10px 间隙)
+        int y = anchorY - getHeight() - 10;
 
         setLocation(x, y);
 
@@ -82,63 +81,56 @@ public class SpeechBubble extends JWindow {
         hideTimer.setDelay(durationMs);
         hideTimer.restart();
 
+        // 显示
         setVisible(true);
     }
 
-    // --- (新增) 内部类: 自定义绘制面板 ---
-
     /**
-     * 这是一个内部类, 专门负责绘制圆角矩形的背景
+     * 内部类：自定义面板
+     * 负责绘制圆角矩形背景和边框。
      */
     private class BubblePanel extends JPanel {
 
         public BubblePanel() {
-            // (关键) 必须设置为 false,
-            // 否则 JPanel 会自己画一个不透明的矩形背景
+            // 必须设置为 false, 否则 JPanel 会绘制不透明的矩形背景
             setOpaque(false);
         }
 
         /**
-         * (关键) 重写此方法来自定义组件的外观
+         * 重写 paintComponent 以自定义绘制
          */
         @Override
         protected void paintComponent(Graphics g) {
-            // (重要) 必须先调用 super.paintComponent(g);
-            // 除非你完全接管绘制 (比如这里我们就不需要它)
-            // super.paintComponent(g);
+            // 不调用 super.paintComponent(g), 因为我们完全自定义背景
 
-            // 我们需要 Graphics2D 来实现更高级的绘制 (例如抗锯齿)
-            Graphics2D g2d = (Graphics2D) g.create(); // 复制 g, 避免污染
-
-            // (重要) 开启抗锯齿, 让圆角边缘平滑
+            Graphics2D g2d = (Graphics2D) g.create(); // 使用副本
+            
+            // 开启抗锯齿, 使圆角平滑
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                     RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // 绘制气泡背景
+            // 绘制背景 (填充圆角矩形)
             g2d.setColor(backgroundColor);
-            // fillRoundRect 绘制一个填充的圆角矩形
             g2d.fillRoundRect(
-                    0, 0, // X, Y (左上角)
+                    0, 0, // X, Y
                     getWidth() - 1, // 宽度
                     getHeight() - 1, // 高度
-                    arcSize, arcSize // 圆角的水平和垂直直径
+                    arcSize, arcSize // 圆角
             );
 
-            // 绘制气泡边框
+            // 绘制边框 (描边圆角矩形)
             g2d.setColor(borderColor);
-            g2d.setStroke(new BasicStroke(1)); // 设置边框粗细为 1 像素
-            // drawRoundRect 绘制一个描边的圆角矩形
+            g2d.setStroke(new BasicStroke(1)); // 1 像素边框
             g2d.drawRoundRect(
                     0, 0,
                     getWidth() - 1,
                     getHeight() - 1,
                     arcSize, arcSize);
 
-            // 释放 Graphics2D 资源
+            // 释放资源
             g2d.dispose();
-
-            // (注意) 我们重写了这个方法后, Swing 会自动为我们绘制子组件
-            // (即 JLabel), 所以我们不需要在这里手动绘制文字。
+            
+            // Swing 会在此之后自动绘制子组件 (JLabel)
         }
     }
 }

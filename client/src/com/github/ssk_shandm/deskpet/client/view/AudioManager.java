@@ -12,36 +12,163 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * (重构)
- * 负责加载、管理和播放配对的语音及文案
+ * 音频管理器
+ * 负责加载、管理和播放配对的语音 (Clip) 及文案 (SpeechPair)。
  */
 public class AudioManager {
 
     private static final Logger logger = Logger.getLogger(AudioManager.class.getName());
 
-    // (修改) 存储 SpeechPair 对象
+    /** 存储所有 SpeechPair (Key -> Pair) */
     private final Map<String, SpeechPair> speechMap = new HashMap<>();
-    // (新增) 用于快速随机抽取的 Key 列表
+    /** 用于快速随机抽取的 Key 列表 */
     private final List<String> keyList = new ArrayList<>();
     private final Random random = new Random();
 
     private boolean isMuted = false;
-    private float currentVolume = 0.3f; // 0.0f - 1.0f
+    private float currentVolume = 0.3f; // 0.0f (静音) - 1.0f (最大)
 
+    /**
+     * 构造函数, 初始化时自动加载语音数据。
+     */
     public AudioManager() {
-        // (修改) 调用加载器
-        loadSpeechData("/audio/BA/seia/"); // 你指定的路径
+        loadSpeechData("/audio/BA/seia/"); // 加载指定路径资源
         logger.info("音频管理器已初始化。");
     }
 
+    // =====================
+    //  公共 API：播放与控制
+    // =====================
+
     /**
-     * (新增)
-     * 核心加载方法：读取 .properties，然后配对加载 .wav 和 .txt
+     * 播放指定的音频
+     * 
+     * @param key 音频的键 (例如 "ch0070_...")
+     */
+    public void play(String key) {
+        if (isMuted) {
+            logger.info("请求播放 " + key + "，但处于静音状态。");
+            return;
+        }
+
+        SpeechPair pair = speechMap.get(key);
+        if (pair == null) {
+            logger.warning("请求播放一个不存在的音频: " + key);
+            return;
+        }
+
+        Clip clip = pair.getAudioClip();
+        if (clip == null) {
+            logger.warning("音频 " + key + " 的 Clip 为 null。");
+            return;
+        }
+
+        if (clip.isRunning()) {
+            clip.stop(); // 停止当前播放
+        }
+
+        try {
+            setClipVolume(clip, this.currentVolume); // 设置音量
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "设置音量失败: " + key, e);
+        }
+
+        clip.setFramePosition(0); // 回到开头
+        clip.start(); // 播放
+        logger.info("正在播放音频 " + key + " (音量: " + this.currentVolume + ")");
+    }
+
+    /**
+     * 设置是否静音
+     * 
+     * @param muted true 为静音
+     */
+    public void setMuted(boolean muted) {
+        this.isMuted = muted;
+        logger.info("AudioManager: 静音设置为 " + muted);
+
+        // 如果设为静音, 停止所有正在播放的
+        if (muted) {
+            for (SpeechPair pair : speechMap.values()) {
+                if (pair.getAudioClip() != null && pair.getAudioClip().isRunning()) {
+                    pair.getAudioClip().stop();
+                }
+            }
+        }
+    }
+
+    /**
+     * 设置音量
+     * 
+     * @param volume 音量 (0.0f to 1.0f)
+     */
+    public void setVolume(float volume) {
+        this.currentVolume = volume;
+        logger.info("AudioManager: 音量设置为 " + volume);
+        // 注意: 音量在 play() 时动态应用, 而不是在此处遍历所有 Clip
+    }
+
+    // ==================
+    // 公共 API：数据获取
+    // ==================
+
+    /**
+     * 从已加载的列表中随机获取一个 SpeechPair
+     * 
+     * @return 随机的 SpeechPair, 如果列表为空则返回 null
+     */
+    public SpeechPair getRandomSpeechPair() {
+        if (keyList.isEmpty()) {
+            logger.warning("请求随机语音，但列表为空。");
+            return null;
+        }
+        String randomKey = keyList.get(random.nextInt(keyList.size()));
+        return speechMap.get(randomKey);
+    }
+
+    /**
+     * 根据 Key 获取 SpeechPair
+     * 
+     * @param key 音频/文本的键
+     * @return 对应的 SpeechPair, 找不到则返回 null
+     */
+    public SpeechPair getSpeechPair(String key) {
+        SpeechPair pair = speechMap.get(key);
+        if (pair == null) {
+            logger.warning("请求 SpeechPair，但未找到 key: " + key);
+        }
+        return pair;
+    }
+
+    /**
+     * 获取指定 key 的音频剪辑的时长 (毫秒)
+     * 
+     * @param key 音频的键
+     * @return 时长 (毫秒), 如果找不到则返回 0
+     */
+    public long getAudioDurationMs(String key) {
+        SpeechPair pair = speechMap.get(key);
+        if (pair != null && pair.getAudioClip() != null) {
+            // Microsecond (微秒) -> Millisecond (毫秒)
+            return pair.getAudioClip().getMicrosecondLength() / 1000;
+        }
+        logger.warning("请求 " + key + " 的时长, 但未找到 Clip。");
+        return 0;
+    }
+
+    // =======================
+    // 私有实现：加载与辅助
+    // =======================
+
+    /**
+     * 核心加载方法：
+     * 读取 speech.properties 清单
+     * 遍历清单, 加载配对的 .wav 和 .txt
      * 
      * @param resourcePath 资源所在的基础路径 (例如 "/audio/BA/seia/")
      */
     private void loadSpeechData(String resourcePath) {
-        // 1. 加载清单文件
+        //  加载清单文件 (speech.properties)
         Properties props = new Properties();
         String propertiesPath = resourcePath + "speech.properties";
         List<String> keysToLoad = new ArrayList<>();
@@ -66,19 +193,19 @@ public class AudioManager {
             return;
         }
 
-        // 2. 遍历清单, 加载配对
+        // 遍历清单, 加载配对
         for (String key : keysToLoad) {
             key = key.trim();
             if (key.isEmpty())
                 continue;
 
             try {
-                // 2a. 加载 .wav
+                // 加载 .wav 音频
                 String audioPath = resourcePath + key + ".wav";
                 URL audioUrl = getClass().getResource(audioPath);
                 if (audioUrl == null) {
-                    logger.warning("找不到音频文件: " + audioPath);
-                    continue; // 缺少音频，跳过此配对
+                    logger.warning("找不到音频文件: " + audioPath + "，跳过此配对。");
+                    continue;
                 }
 
                 Clip clip;
@@ -88,20 +215,20 @@ public class AudioManager {
                     clip.open(audioStream);
                 }
 
-                // 2b. 加载 .txt
+                // 加载 .txt 文本
                 String textPath = resourcePath + key + ".txt";
                 String textContent;
                 try (InputStream textIs = getClass().getResourceAsStream(textPath);
                         BufferedReader reader = new BufferedReader(
                                 new InputStreamReader(textIs, StandardCharsets.UTF_8))) {
-                    textContent = reader.readLine(); // (假设文案只有一行)
+                    textContent = reader.readLine(); // 假设文案只有一行
                 }
                 if (textContent == null || textContent.isEmpty()) {
                     logger.warning("文案文件为空或找不到: " + textPath);
-                    textContent = "..."; // 提供一个备用
+                    textContent = "..."; // 提供备用
                 }
 
-                // 3. 创建并存储
+                // 创建并存储
                 SpeechPair pair = new SpeechPair(key, clip, textContent);
                 speechMap.put(key, pair);
                 keyList.add(key);
@@ -114,63 +241,17 @@ public class AudioManager {
     }
 
     /**
-     * (重构)
-     * 播放指定的音频
-     * 
-     * @param key 音频的键 (例如 "greeting")
-     */
-    public void play(String key) {
-        if (isMuted) {
-            logger.info("请求播放 " + key + "，但处于静音状态。");
-            return;
-        }
-
-        SpeechPair pair = speechMap.get(key);
-        if (pair == null) {
-            logger.warning("请求播放一个不存在的音频: " + key);
-            return;
-        }
-
-        Clip clip = pair.getAudioClip();
-        if (clip == null) {
-            logger.warning("音频 " + key + " 的 Clip 为 null。");
-            return;
-        }
-
-        // (重要) 确保 Clip 未在播放
-        if (clip.isRunning()) {
-            clip.stop();
-        }
-
-        // (重要) 设置音量
-        try {
-            setClipVolume(clip, this.currentVolume);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "设置音量失败: " + key, e);
-        }
-
-        // (重要) 播放
-        clip.setFramePosition(0); // 回到开头
-        clip.start(); // 播放
-        logger.info("正在播放音频 " + key + " (音量: " + this.currentVolume + ")");
-    }
-
-    /**
-     * (新增)
      * 辅助方法：设置 Clip 的音量
+     * 
+     * @param clip   要设置的 Clip
+     * @param volume 线性音量 (0.0f - 1.0f)
      */
     private void setClipVolume(Clip clip, float volume) {
-        if (volume < 0.0f)
-            volume = 0.0f;
-        if (volume > 1.0f)
-            volume = 1.0f;
-
-        // (关键) 必须通过 FloatControl 来控制音量
+        // 必须通过 FloatControl (MASTER_GAIN) 来控制音量
         if (clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
             FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
             // 将 0.0-1.0 的线性音量转换为分贝(dB)
-            // (注意: 0.0f 会导致 -Infinity, 所以我们设置一个最小值)
             float dB = (volume <= 0.0001f) ? gainControl.getMinimum() : (float) (Math.log10(volume) * 20.0);
 
             // 确保 dB 在允许范围内
@@ -180,85 +261,5 @@ public class AudioManager {
         } else {
             logger.warning("不支持 MASTER_GAIN 音量控制。");
         }
-    }
-
-    /**
-     * (重构)
-     * 设置是否静音
-     */
-    public void setMuted(boolean muted) {
-        this.isMuted = muted;
-        logger.info("AudioManager: 静音设置为 " + muted);
-
-        if (muted) {
-            // (新增) 如果静音，停止所有正在播放的
-            for (SpeechPair pair : speechMap.values()) {
-                if (pair.getAudioClip() != null && pair.getAudioClip().isRunning()) {
-                    pair.getAudioClip().stop();
-                }
-            }
-        }
-    }
-
-    /**
-     * (重构)
-     * 设置音量
-     * 
-     * @param volume 音量 (0.0f to 1.0f)
-     */
-    public void setVolume(float volume) {
-        this.currentVolume = volume;
-        logger.info("AudioManager: 音量设置为 " + volume);
-
-        // (注意) 我们不需要在这里更新所有 Clip，
-        // 我们选择在 play() 方法中设置音量，这样更高效。
-    }
-
-    /**
-     * (新增)
-     * 从已加载的列表中随机获取一个 SpeechPair
-     * 
-     * @return 随机的 SpeechPair, 如果列表为空则返回 null
-     */
-    public SpeechPair getRandomSpeechPair() {
-        if (keyList.isEmpty()) {
-            logger.warning("请求随机语音，但列表为空。");
-            return null;
-        }
-
-        String randomKey = keyList.get(random.nextInt(keyList.size()));
-        return speechMap.get(randomKey);
-    }
-
-    /**
-     * (新增)
-     * 根据 Key 获取 SpeechPair
-     * 
-     * @param key 音频/文本的键
-     * @return 对应的 SpeechPair, 找不到则返回 null
-     */
-    public SpeechPair getSpeechPair(String key) {
-        SpeechPair pair = speechMap.get(key);
-        if (pair == null) {
-            logger.warning("请求 SpeechPair，但未找到 key: " + key);
-        }
-        return pair;
-    }
-
-    /**
-     * (新增)
-     * 获取指定 key 的音频剪辑的时长 (毫秒)
-     * 
-     * @param key 音频的键
-     * @return 时长 (毫秒), 如果找不到则返回 0
-     */
-    public long getAudioDurationMs(String key) {
-        SpeechPair pair = speechMap.get(key);
-        if (pair != null && pair.getAudioClip() != null) {
-            // clip.getMicrosecondLength() 返回微秒, 除以 1000 得到毫秒
-            return pair.getAudioClip().getMicrosecondLength() / 1000;
-        }
-        logger.warning("请求 " + key + " 的时长, 但未找到 Clip。");
-        return 0;
     }
 }

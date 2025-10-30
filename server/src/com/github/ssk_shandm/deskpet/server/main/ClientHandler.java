@@ -97,8 +97,8 @@ public class ClientHandler implements Runnable {
                         Pet currentpet = petService.getOrCreatePet();
                         if (currentpet != null) {
                             int newLikeability = currentpet.getLikeability() + changeAmount;
-                            // 添加好感度边界检查 (例如 0-1000)
-                            newLikeability = Math.max(0, Math.min(1000, newLikeability));
+                            // 添加好感度边界检查 (例如 0-100)
+                            newLikeability = Math.max(0, Math.min(100, newLikeability));
                             currentpet.setLikeability(newLikeability);
                             if (petService.updatePet(currentpet)) {
                                 return "UPDATE_LIKEABILITY_RESPONSE:SUCCESS," + newLikeability;
