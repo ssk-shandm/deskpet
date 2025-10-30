@@ -16,6 +16,7 @@ public class AudioDao {
 
     /**
      * 从数据库加载所有已缓存的时长
+     * 
      * @return Map<String, Long>
      */
     public Map<String, Long> getAllDurations() {
@@ -23,8 +24,8 @@ public class AudioDao {
         String sql = "SELECT key, duration_ms FROM audio_durations";
 
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
                 durations.put(rs.getString("key"), rs.getLong("duration_ms"));
@@ -37,6 +38,7 @@ public class AudioDao {
 
     /**
      * 批量保存时长到数据库 (使用 INSERT OR REPLACE)
+     * 
      * @param durationsMap 要保存的 Map
      */
     public void saveDurations(Map<String, Long> durationsMap) {

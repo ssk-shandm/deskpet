@@ -18,6 +18,7 @@ public class User {
 
     /**
      * 完整构造函数
+     * 
      * @param id       用户ID
      * @param username 用户名
      * @param points   积分
@@ -29,7 +30,6 @@ public class User {
     }
 
     // Getters 和 Setters
-
     public int getId() {
         return id;
     }

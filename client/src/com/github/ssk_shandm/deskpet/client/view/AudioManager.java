@@ -22,7 +22,7 @@ public class AudioManager {
 
     private static final Logger logger = Logger.getLogger(AudioManager.class.getName());
 
-    /** 存储所有 SpeechPair (Key -> Pair) */
+    /** 存储所有 SpeechPair */
     private final Map<String, SpeechPair> speechMap = new HashMap<>();
     /** 用于快速随机抽取的 Key 列表 */
     private final List<String> keyList = new ArrayList<>();
@@ -46,7 +46,7 @@ public class AudioManager {
         logger.info("音频管理器已初始化。");
     }
 
-    // ======================
+    // =======================
     // 公共 API：播放与控制
     // =======================
     /**
@@ -117,9 +117,9 @@ public class AudioManager {
         // 注意: 音量在 play() 时动态应用, 而不是在此处遍历所有 Clip
     }
 
-    // ==================
+    // ====================
     // 公共 API：数据获取
-    // ==================
+    // ====================
 
     /**
      * 从已加载的列表中随机获取一个 SpeechPair
@@ -150,8 +150,10 @@ public class AudioManager {
     }
 
     /**
+     * 获取音频时长 (从缓存的 SpeechPair 中读取)
      * 
-     * 现在只从缓存的 SpeechPair 中读取
+     * @param key 音频的键
+     * @return 毫秒时长
      */
     public long getAudioDurationMs(String key) {
         SpeechPair pair = speechMap.get(key);
@@ -170,8 +172,12 @@ public class AudioManager {
     /**
      * 核心加载方法：
      * 检查服务器缓存
-     * 未命中则本地计算
+     * 未命中缓存则本地计算
      * 异步上传新计算的数据
+     * 加载 Clip 并存储 SpeechPair
+     * 
+     * @param resourcePath    资源根路径 (例如 "/audio/BA/seia/")
+     * @param cachedDurations 从服务器获取的时长缓存
      */
     private void loadSpeechData(String resourcePath, Map<String, Long> cachedDurations) {
         logger.info("开始加载语音数据... 已有 " + cachedDurations.size() + " 条缓存。");
@@ -179,7 +185,6 @@ public class AudioManager {
         Map<String, Long> newDurationsToUpload = new HashMap<>();
 
         // 加载清单文件 (speech.properties)
-
         Properties props = new Properties();
         String propertiesPath = resourcePath + "speech.properties";
 
@@ -213,6 +218,7 @@ public class AudioManager {
 
                 long durationMs = 0;
 
+                // 检查缓存
                 if (cachedDurations.containsKey(key)) {
                     // 下一次打开：直接从缓存读取
                     durationMs = cachedDurations.get(key);
@@ -235,9 +241,9 @@ public class AudioManager {
                 }
 
                 // 从 properties 文件中获取台词
-                String textContent = props.getProperty(key, "..."); 
+                String textContent = props.getProperty(key, "..."); // 找不到key时的默认值
 
-                // 用包含时长的构造函数
+                // 存入 Map
                 SpeechPair pair = new SpeechPair(key, clip, textContent, durationMs);
                 speechMap.put(key, pair);
                 keyList.add(key);
@@ -256,19 +262,23 @@ public class AudioManager {
     }
 
     /**
-     * 辅助方法：使用 AudioFileFormat 计算时长
+     * 辅助方法：使用 AudioFileFormat 可靠地计算时长
+     * 
+     * @param audioUrl 音频文件的 URL
+     * @return 毫秒时长
      */
     private long calculateDurationReliably(URL audioUrl) {
         long durationMs = 0;
         try (AudioInputStream stream = AudioSystem.getAudioInputStream(
                 new BufferedInputStream(audioUrl.openStream()))) {
+
             AudioFileFormat fileFormat = AudioSystem.getAudioFileFormat(audioUrl);
             AudioFormat format = fileFormat.getFormat();
-            long frameLength = fileFormat.getFrameLength();
-            float frameRate = format.getFrameRate();
+            long frameLength = fileFormat.getFrameLength(); // 总帧数
+            float frameRate = format.getFrameRate(); // 每秒帧数
 
             if (frameLength > 0 && frameRate > 0) {
-                // (帧数 * 1000.0) / 帧率 = 毫秒
+                // (总帧数 * 1000.0) / 帧率 = 毫秒
                 durationMs = (long) ((frameLength * 1000.0) / frameRate);
             } else {
                 logger.warning("无法通过 AudioFileFormat 计算 " + audioUrl.getFile() + " 的时长 (frameLength/frameRate 为 0)");
@@ -291,7 +301,10 @@ public class AudioManager {
             FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
             // 将 0.0-1.0 的线性音量转换为分贝(dB)
-            float dB = (volume <= 0.0001f) ? gainControl.getMinimum() : (float) (Math.log10(volume) * 20.0);
+            // 这是一个对数转换
+            float dB = (volume <= 0.0001f)
+                    ? gainControl.getMinimum() // 设为最小值 (静音)
+                    : (float) (Math.log10(volume) * 20.0);
 
             // 确保 dB 在允许范围内
             dB = Math.max(gainControl.getMinimum(), Math.min(dB, gainControl.getMaximum()));

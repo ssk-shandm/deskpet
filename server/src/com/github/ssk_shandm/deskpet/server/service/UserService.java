@@ -15,6 +15,7 @@ public class UserService {
 
     /**
      * 获取或创建唯一用户 (固定 ID=1)
+     * 
      * @return User 对象
      */
     public User getOrCreateUser() {

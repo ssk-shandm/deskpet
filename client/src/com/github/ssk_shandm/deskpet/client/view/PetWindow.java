@@ -259,7 +259,7 @@ public class PetWindow extends JWindow {
         });
 
         /**
-         * 实验功能：好感度修改测试
+         * 实验功能：好感度修改测试 (开启用于自定义好感度大小)
          */
         // // 好感度测试
         // cheatLikeabilityItem = new JMenuItem("likeability test:");
@@ -422,7 +422,7 @@ public class PetWindow extends JWindow {
                 comp.addMouseListener(autoHideListener);
             }
         }
-        // 特别为JMenu添加监听，因为它有子菜单
+        // 特别为JMenu添加监听，子菜单
         voiceOptionsMenu.addMouseListener(autoHideListener);
         volumeSubMenu.addMouseListener(autoHideListener);
     }
@@ -439,11 +439,11 @@ public class PetWindow extends JWindow {
         imageLabel.setDropTarget(new DropTarget(imageLabel, new PetDropTargetListener()));
     }
 
-    // ==================================
+    // ====================================
     // 动画资源加载 (由 SwingWorker 调用)
-    // ==================================
+    // ====================================
     /**
-     * 加载优先动画 (如 idle, happy, pickup)
+     * 加载优先动画
      * 
      * @param petName      宠物名
      * @param favorability 当前好感度
@@ -451,7 +451,7 @@ public class PetWindow extends JWindow {
      */
     private Map<String, List<BufferedImage>> loadPriorityAnimations(String petName, int favorability) {
         List<String> priorityNames = new ArrayList<>();
-        priorityNames.add(getDefaultIdleAnimation(favorability)); // 必须先加载默认 idle
+        priorityNames.add(getDefaultIdleAnimation(favorability));
         priorityNames.add("happy");
         priorityNames.add("pickup");
         if (!priorityNames.contains("idle_normal")) {
@@ -561,8 +561,8 @@ public class PetWindow extends JWindow {
 
     /**
      * 加载指定列表中的动画
-     * * @param petName 宠物名
      * 
+     * @param petName        宠物名
      * @param animationNames 动画名列表
      * @return 加载到的动画 Map
      */
@@ -577,12 +577,13 @@ public class PetWindow extends JWindow {
         return loadedAnims;
     }
 
-    // =============
+    // ===============
     // 动画播放控制
-    // =============
+    // ===============
     /**
      * 播放动画 (循环)
-     * * @param name 动画名称
+     * 
+     * @param name 动画名称
      */
     private void playAnimation(String name) {
         if (name == null || !animations.containsKey(name) || animations.get(name).isEmpty()) {
@@ -611,6 +612,7 @@ public class PetWindow extends JWindow {
 
         setImageFrame(frames.get(0)); // 设置第一帧并调整窗口大小
 
+        // 调整帧数
         animationTimer = new Timer(47, e -> { // 约 21 FPS
             currentFrameIndex = (currentFrameIndex + 1) % frames.size();
             setImageFrame(frames.get(currentFrameIndex));
@@ -622,7 +624,8 @@ public class PetWindow extends JWindow {
 
     /**
      * 播放动画一次，然后回到默认的 idle 动画
-     * * @param name 动画名称
+     * 
+     * @param name 动画名称
      */
     public void playAnimationOnce(String name) {
         if (name == null || !animations.containsKey(name) || animations.get(name).isEmpty()) {
@@ -700,9 +703,9 @@ public class PetWindow extends JWindow {
 
     /**
      * 触发宠物说话 (播放语音和显示气泡)
-     * * @param audioKey 语音文件的键 (如 "ch0070_...")
      * 
-     * @param text 气泡上显示的文字
+     * @param audioKey 语音文件的键
+     * @param text     气泡上显示的文字
      */
     public void say(String audioKey, String text) {
         // 播放音频 (如果不静音)
@@ -745,7 +748,8 @@ public class PetWindow extends JWindow {
 
     /**
      * 根据 Key 播放对应的语音和气泡
-     * * @param key 语音键 (例如 "attack")
+     * 
+     * @param key 语音键 (例如 "attack")
      */
     private void sayForKey(String key) {
         SpeechPair pair = audioManager.getSpeechPair(key);
@@ -784,13 +788,14 @@ public class PetWindow extends JWindow {
         logger.warning("sayRandomly: 尝试 " + maxAttempts + " 次均抽到事件语音，跳过。");
     }
 
-    // ==============================
+    // ===============================
     // 交互逻辑 (API, 道具, 特殊动作)
-    // ==============================
+    // ===============================
 
     /**
      * 异步向服务器发送更新好感度的请求
-     * * @param changeAmount 好感度变化量 (正数或负数)
+     * 
+     * @param changeAmount 好感度变化量 (正数或负数)
      */
     private void updateLikeabilityAsync(int changeAmount) {
         new Thread(() -> {
@@ -941,27 +946,28 @@ public class PetWindow extends JWindow {
 
     /**
      * (由 SwingWorker 调用) 检查刚加载的动画是否对应菜单项，若是则启用
-     * * @param animationName 刚加载完成的动画名
+     * 
+     * @param animationName 刚加载完成的动画名
      */
     private void checkAndEnableMenuItem(String animationName) {
         if (animationName == null)
             return;
 
-        // 1. 特殊互动 (需要 "attack")
+        // 特殊互动 (需要 "attack")
         if (animationName.equals(SPECIAL_ACTION_ANIMATION) && specialActionMenuItem != null) {
             specialActionMenuItem.setEnabled(true);
             specialActionMenuItem.setToolTipText(null);
             logger.info("UI: 'specialActionMenuItem' 已启用 (attack 加载完毕)。");
         }
 
-        // 2. 锤子 (需要 "headache")
+        // 锤子 (需要 "headache")
         if (animationName.equals("headache") && hammerMenuItem != null) {
             hammerMenuItem.setEnabled(true);
             hammerMenuItem.setToolTipText(null);
             logger.info("UI: 'hammerMenuItem' 已启用 (headache 加载完毕)。");
         }
 
-        // 3. 轻推 (需要 "knockdown")
+        // 轻推 (需要 "knockdown")
         if (animationName.equals("knockdown") && pistonMenuItem != null) {
             pistonMenuItem.setEnabled(true);
             pistonMenuItem.setToolTipText(null);
@@ -969,9 +975,9 @@ public class PetWindow extends JWindow {
         }
     }
 
-    // ============
+    // ================
     // 辅助工具方法
-    // ============
+    // ================
     /**
      * 根据好感度获取默认的 idle 动画名称
      */
@@ -984,7 +990,7 @@ public class PetWindow extends JWindow {
         } else if (likeability >= 60) {
             animName = "idle_unhappy";
         } else if (likeability >= 30) {
-            animName = "idle_ignore"; // 假设存在 (需要确保资源里有)
+            animName = "idle_ignore";
         } else {
             animName = "idle_sad";
         }
@@ -1029,9 +1035,9 @@ public class PetWindow extends JWindow {
                 && animationTimer.isRunning();
     }
 
-    // ==========================
+    // =============================
     // 内部类 (事件监听器, 加载器)
-    // ==========================
+    // =============================
 
     /**
      * 内部类：处理鼠标事件 (点击, 拖动)
@@ -1104,6 +1110,7 @@ public class PetWindow extends JWindow {
                                 break;
                             case "COOLDOWN":
                                 try {
+                                    // // 显示冷却时间
                                     // long remainingTime = Long.parseLong(response.get("remainingTime"));
                                     // long totalSeconds = remainingTime / 1000;
                                     // long hours = totalSeconds / 3600;

@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 public class DatabaseUtil {
 
     private static final Logger logger = Logger.getLogger(DatabaseUtil.class.getName());
-    /** 数据库连接字符串 (本地文件) */
+
     private static final String URL = "jdbc:sqlite:deskpet.db";
 
     /**
@@ -40,7 +40,7 @@ public class DatabaseUtil {
         String createAudioTableSql = "CREATE TABLE IF NOT EXISTS audio_durations (" +
                 "key TEXT PRIMARY KEY," +
                 "duration_ms INTEGER NOT NULL" +
-                ");";
+                ");";    
 
         // 插入默认数据
         String insertDefaultPetSql = "INSERT INTO pets (name, likeability, last_click_time) VALUES ('seia', 100, 0);";
@@ -53,7 +53,7 @@ public class DatabaseUtil {
             // 执行建表 (CREATE TABLE IF NOT EXISTS 是安全的)
             stmt.execute(createUserTableSql);
             stmt.execute(createPetTableSql);
-            stmt.execute(createAudioTableSql); 
+            stmt.execute(createAudioTableSql);
             logger.info("数据库表检查/创建成功！");
 
             // 检查 pets 表是否为空

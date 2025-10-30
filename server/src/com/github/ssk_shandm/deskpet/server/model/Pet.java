@@ -19,6 +19,7 @@ public class Pet {
 
     /**
      * 完整构造函数
+     * 
      * @param id            宠物 ID
      * @param name          名字
      * @param likeability   好感度

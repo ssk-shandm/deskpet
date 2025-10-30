@@ -22,8 +22,7 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 构造函数
-     * 
-     * @param parent 父窗口 (PetWindow)
+     * * @param parent 父窗口 (PetWindow)
      * @param gc     图形配置 (用于透明窗口)
      */
     public SpeechBubble(Window parent, GraphicsConfiguration gc) {
@@ -59,8 +58,7 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 显示气泡
-     * 
-     * @param text       要显示的文字
+     * * @param text       要显示的文字
      * @param durationMs 显示时长 (毫秒)
      * @param anchorY    锚点 (宠物头顶) 的屏幕 Y 坐标
      */
@@ -83,7 +81,7 @@ public class SpeechBubble extends JWindow {
 
         logger.info("SpeechBubble 正在设置时长为: " + durationMs + "ms");
 
-        // 重启计时器
+        // 重启计时器 (设置新的延迟并启动)
         hideTimer.setInitialDelay(durationMs);
         hideTimer.setDelay(durationMs);
         hideTimer.restart();

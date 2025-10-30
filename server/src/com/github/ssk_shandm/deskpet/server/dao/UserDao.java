@@ -19,6 +19,7 @@ public class UserDao {
 
     /**
      * 根据用户 ID 从数据库中查找用户
+     * 
      * @param id 用户 ID (主键)
      * @return 如果找到，返回 User 对象；否则返回 null
      */
@@ -27,16 +28,16 @@ public class UserDao {
         User user = null;
 
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, id);
-            
+
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     user = new User();
                     user.setId(rs.getInt("id"));
                     user.setUsername(rs.getString("username"));
-                    // user.setPoints(rs.getInt("points")); // points 字段已注释
+                    // user.setPoints(rs.getInt("points")); 
                 }
             }
         } catch (SQLException e) {
@@ -47,6 +48,7 @@ public class UserDao {
 
     /**
      * 将一个新的用户存入数据库 (ID 固定为 1)
+     * 
      * @param user 要创建的用户对象 (仅使用 username)
      * @return 如果创建成功，返回 true；否则返回 false
      */
@@ -55,7 +57,7 @@ public class UserDao {
         String sql = "INSERT INTO users (id, username) VALUES (1, ?)";
 
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, user.getUsername());
 
@@ -63,7 +65,6 @@ public class UserDao {
             return affectedRows > 0;
 
         } catch (SQLException e) {
-            // 特别处理 UNIQUE 约束冲突 (用户名已存在)
             if (e.getMessage().contains("SQLITE_CONSTRAINT_UNIQUE")) {
                 logger.warning("尝试创建用户失败：用户名 '" + user.getUsername() + "' 已存在。");
             } else {

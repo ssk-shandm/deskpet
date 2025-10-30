@@ -22,18 +22,19 @@ public class Server {
 
     /**
      * 服务器主方法
+     * 
      * @param args 命令行参数 (未使用)
      */
     public static void main(String[] args) {
-        
+
         // 初始化数据库 (检查或创建 .db 文件和表)
         DatabaseUtil.initializeDatabase(); //
         logger.info("--- 数据库检查完成 ---");
 
-        // 实例化服务 (Service 层)
-        UserService userService = new UserService(); //
-        PetService petService = new PetService(); //
-        AudioService audioService = new AudioService(); // [!! 新增 !!]
+        // 实例化服务
+        UserService userService = new UserService(); 
+        PetService petService = new PetService(); 
+        AudioService audioService = new AudioService(); 
 
         // 启动服务器套接字
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -45,7 +46,6 @@ public class Server {
                 logger.info("接收到新的客户端连接: " + clientSocket.getRemoteSocketAddress());
 
                 // 为新客户端创建一个线程来处理
-                // [!! 修改 !!] 将 audioService 传入
                 ClientHandler clientHandler = new ClientHandler(clientSocket, userService, petService, audioService); //
                 new Thread(clientHandler, "Client-" + clientSocket.getPort()).start();
             }

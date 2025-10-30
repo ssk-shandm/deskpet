@@ -1,4 +1,3 @@
-// client/src/com/github/ssk_shandm/deskpet/client/main/Main.java
 package com.github.ssk_shandm.deskpet.client.main;
 
 import com.formdev.flatlaf.FlatLightLaf;
@@ -33,7 +32,6 @@ public class Main {
 
             } catch (UnsupportedLookAndFeelException e) {
                 logger.log(Level.SEVERE, "无法设置 FlatLaf 外观", e);
-                // 注: 即使失败, 程序仍能使用 Java 默认外观运行
             }
 
             // 创建 PetWindow 实例
