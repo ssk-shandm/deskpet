@@ -116,8 +116,10 @@ public class PetWindow extends JWindow {
         setLayout(new BorderLayout());
         add(imageLabel, BorderLayout.CENTER);
 
-        // 设置初始加载状态
+        // 设置初始加载状态 
         imageLabel.setText("加载中...");
+        imageLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 16)); 
+        imageLabel.setForeground(Color.CYAN); 
         imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         setSize(150, 50);
         setLocationRelativeTo(null); // 居中

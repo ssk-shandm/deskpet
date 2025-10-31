@@ -5,6 +5,7 @@ out/
 !**/src/test/**/out/
 .kotlin
 .idea/
+/target/
 
 ### Eclipse ###
 .apt_generated
@@ -37,5 +38,6 @@ bin/
 ### sqlite ###
 deskpet.db
 
-
-
+### other ###
+DeskPet.ico
+pom.xml
