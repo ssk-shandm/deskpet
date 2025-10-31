@@ -1,4 +1,4 @@
-# 🚀 DeskPet - 桌面宠物项目 🚀
+# 🚀 DeskPet - 桌面宠物项目
 
 `DeskPet` 是一个基于 Java 实现的客户端-服务器（C/S）架构的桌面宠物应用程序。客户端使用 Java Swing 构建，服务器使用 Java Sockets 和 SQLite 数据库实现。这是一款以碧蓝档案游戏中角色seia（圣娅）模型为基础的桌宠程序
 
@@ -25,28 +25,30 @@
 
 ## 📁 项目结构
 
+```text
 deskpet/
-├── client/                                             # 客户端模块
-│   ├── lib/                                             # 客户端依赖 (flatlaf-3.6.2.jar)
+├── client/                                       # 客户端模块
+│   ├── lib/                                      # 客户端依赖 (flatlaf-3.6.2.jar)
 │   ├── resources/                                # 客户端资源 (音频, 动画帧, 图标)
-│   │   ├── audio/                                  # 音频文件
-│   │   ├── mod/                                    # 模型序列帧文件
-│   │   └── tools/                                    #右键菜单交互工具图
-│   └── src/                                             # 客户端源码 (com.github.ssk_shandm.deskpet.client)
-│       ├── main/                                     # 启动类
-│       ├── network/                               # ApiClient (网络请求封装)
-│       └── view/                                      # PetWindow, AudioManager 等 (Swing 视图)
+│   │   ├── audio/                                # 音频文件
+│   │   ├── mod/                                  # 模型序列帧文件
+│   │   └── tools/                                # 右键菜单交互工具图
+│   └── src/                                      # 客户端源码 (com.github.ssk_shandm.deskpet.client)
+│       ├── main/                                 # 启动类
+│       ├── network/                              # ApiClient (网络请求封装)
+│       └── view/                                 # PetWindow, AudioManager 等 (Swing 视图)
 │
-├── server/                                            # 服务端模块
-│   ├── lib/                                             # 服务端依赖 (sqlite-jdbc-3.50.3.0.jar)
-│   └── src/                                            # 服务端源码 (com.github.ssk_shandm.deskpet.server)
-│       ├── dao/                                      # 数据库访问对象 (UserDao, PetDao...)
-│       ├── main/                                    # Server (主服务), ClientHandler (多线程处理)
-│       ├── model/                                 # 数据实体 (User, Pet...)
-│       └── service/                                # 业务逻辑层
+├── server/                                       # 服务端模块
+│   ├── lib/                                      # 服务端依赖 (sqlite-jdbc-3.50.3.0.jar)
+│   └── src/                                      # 服务端源码 (com.github.ssk_shandm.deskpet.server)
+│       ├── dao/                                  # 数据库访问对象 (UserDao, PetDao...)
+│       ├── main/                                 # Server (主服务), ClientHandler (多线程处理)
+│       ├── model/                                # 数据实体 (User, Pet...)
+│       └── service/                              # 业务逻辑层
 │
 ├── .gitignore
 └── ... (IntelliJ IDEA 配置文件 .iml)
+```
 
 ## 🚀 如何启动 (简易指南)
 

@@ -463,11 +463,13 @@ public class PetWindow extends JWindow {
 
     /**
      * 从 mod/BA/[petName]/animations.properties 文件加载所有动画类型列表
-     * * @return 动画名称列表
+     * 
+     * @return 动画名称列表
      */
     private List<String> listAnimationTypes() {
         // 默认备用列表
-        List<String> defaultList = Arrays.asList("idle_normal", "idle_happy", "idle_unhappy", "idle_doubt", "idle_sad",
+        List<String> defaultList = Arrays.asList("idle_normal", "idle_happy", "idle_unhappy", "idle_doubt",
+                "idle_ignore", "idle_sad",
                 "happy", "attack", "headache", "jump", "knockdown", "pickup", "skill");
 
         java.util.Properties props = new java.util.Properties();
