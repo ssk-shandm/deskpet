@@ -21,20 +21,18 @@ public class ApiClient {
     private final int port = 12345;
 
     public ApiClient() {
-        // 构造函数
     }
 
     /**
      * 发送一个请求并获取一行响应
-     * @param request 要发送的命令 (例如 "GET" 或 "CLICK")
+     * 
+     * @param request 要发送的命令
      * @return 服务器的响应字符串
      */
     private String sendRequest(String request) {
-        // 为每个请求打开一个新 Socket (效率低，但与你现有模式匹配)
         try (Socket socket = new Socket(host, port);
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())))
-        {
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
             out.println(request); // 发送请求
             String response = in.readLine(); // 等待响应
             if (response == null) {
@@ -51,35 +49,35 @@ public class ApiClient {
      * 获取宠物数据
      */
     public Map<String, String> getPetData() {
-        String response = sendRequest("GET"); 
-        // PET_DATA:seia,100,0
-        return parseResponse(response, "PET_DATA", new String[]{"name", "likeability", "lastClickTime"});
+        String response = sendRequest("GET");
+        return parseResponse(response, "PET_DATA", new String[] { "name", "likeability", "lastClickTime" });
     }
 
     /**
      * 发送点击
      */
     public Map<String, String> sendClick() {
-        String response = sendRequest("CLICK"); 
-        return parseResponse(response, "CLICK_RESPONSE", new String[]{"status", "likeability", "lastClickTime"});
+        String response = sendRequest("CLICK");
+        return parseResponse(response, "CLICK_RESPONSE", new String[] { "status", "likeability", "lastClickTime" });
     }
 
     /**
      * 更新好感度
      */
     public Map<String, String> updateLikeability(int changeAmount) {
-        String response = sendRequest("UPDATE_LIKEABILITY:" + changeAmount); 
-        return parseResponse(response, "UPDATE_LIKEABILITY_RESPONSE", new String[]{"status", "newLikeability"});
+        String response = sendRequest("UPDATE_LIKEABILITY:" + changeAmount);
+        return parseResponse(response, "UPDATE_LIKEABILITY_RESPONSE", new String[] { "status", "newLikeability" });
     }
-    
+
     /**
      * 从服务器获取所有已缓存的音频时长
+     * 
      * @return Map<String, Long>
      */
     public Map<String, Long> getAudioDurations() {
         logger.info("正在从服务器获取音频时长缓存...");
-        String response = sendRequest("GET_DURATIONS"); 
-        
+        String response = sendRequest("GET_DURATIONS");
+
         // 响应格式: DURATIONS_DATA:key1,ms1;key2,ms2;
         if (response.startsWith("DURATIONS_DATA:")) {
             Map<String, Long> durations = new HashMap<>();
@@ -98,29 +96,30 @@ public class ApiClient {
                 logger.info("成功获取 " + durations.size() + " 条时长缓存。");
                 return durations;
             } catch (Exception e) {
-                 logger.log(Level.WARNING, "解析 GET_DURATIONS 响应失败", e);
-                 return Collections.emptyMap();
+                logger.log(Level.WARNING, "解析 GET_DURATIONS 响应失败", e);
+                return Collections.emptyMap();
             }
         }
         logger.warning("获取音频时长失败: " + response);
         return Collections.emptyMap(); // 失败时返回空 Map
     }
-    
+
     /**
      * 将新计算的时长 Map 异步上传到服务器
+     * 
      * @param durationsMap
      */
     public void saveAudioDurationsAsync(Map<String, Long> durationsMap) {
         if (durationsMap == null || durationsMap.isEmpty()) {
             return;
         }
-        
+
         // 将 Map 编码为 "key1,ms1;key2,ms2"
         StringBuilder sb = new StringBuilder("POST_DURATIONS:"); //
         for (Map.Entry<String, Long> entry : durationsMap.entrySet()) {
             sb.append(entry.getKey()).append(",").append(entry.getValue()).append(";");
         }
-        
+
         String request = sb.toString();
 
         // 异步发送，不阻塞主线程
@@ -147,16 +146,16 @@ public class ApiClient {
             }
             // 自动设置 status (基于 header)
             if (data.length > 0 && fieldNames[0].equals("status")) {
-                 map.put("status", data[0]);
+                map.put("status", data[0]);
             } else {
-                 map.put("status", "SUCCESS"); // 默认
+                map.put("status", "SUCCESS"); // 默认
             }
         } else if (response.startsWith("ERROR:")) {
             map.put("status", "ERROR");
             map.put("message", response.substring("ERROR:".length()));
         } else {
-             map.put("status", "ERROR");
-             map.put("message", "未知响应: " + response);
+            map.put("status", "ERROR");
+            map.put("message", "未知响应: " + response);
         }
         return map;
     }

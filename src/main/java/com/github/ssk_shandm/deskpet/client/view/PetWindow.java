@@ -116,10 +116,10 @@ public class PetWindow extends JWindow {
         setLayout(new BorderLayout());
         add(imageLabel, BorderLayout.CENTER);
 
-        // 设置初始加载状态 
+        // 设置初始加载状态
         imageLabel.setText("加载中...");
-        imageLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 16)); 
-        imageLabel.setForeground(Color.CYAN); 
+        imageLabel.setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
+        imageLabel.setForeground(Color.CYAN);
         imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         setSize(150, 50);
         setLocationRelativeTo(null); // 居中
@@ -309,7 +309,7 @@ public class PetWindow extends JWindow {
         // 锤子
         hammerMenuItem = new JMenuItem("敲击!");
         hammerMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        hammerMenuItem.setEnabled(false); // 等待动画加载
+        hammerMenuItem.setEnabled(false);
         hammerMenuItem.setToolTipText("动画还未加载");
         hammerMenuItem.addActionListener(e -> toggleHammerMode());
         contextMenu.add(hammerMenuItem);
@@ -317,7 +317,7 @@ public class PetWindow extends JWindow {
         // 轻推
         pistonMenuItem = new JMenuItem("我推!");
         pistonMenuItem.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
-        pistonMenuItem.setEnabled(false); // 等待动画加载
+        pistonMenuItem.setEnabled(false);
         pistonMenuItem.setToolTipText("动画还未加载");
         pistonMenuItem.addActionListener(e -> togglePistonMode());
         contextMenu.add(pistonMenuItem);
@@ -464,7 +464,7 @@ public class PetWindow extends JWindow {
     }
 
     /**
-     * 从 mod/BA/[petName]/animations.properties 文件加载所有动画类型列表
+     * 从 mod/BA/seia/animations.properties 文件加载所有动画类型列表
      * 
      * @return 动画名称列表
      */
@@ -682,7 +682,8 @@ public class PetWindow extends JWindow {
 
     /**
      * 设置当前 JLabel 图像，并自动调整窗口大小
-     * * @param frame 要显示的 BufferedImage
+     * 
+     * @param frame 要显示的 BufferedImage
      */
     private void setImageFrame(BufferedImage frame) {
         if (frame == null) {
@@ -701,9 +702,9 @@ public class PetWindow extends JWindow {
         }
     }
 
-    // ============
+    // =============
     // 语音和气泡
-    // ============
+    // =============
 
     /**
      * 触发宠物说话 (播放语音和显示气泡)
@@ -753,7 +754,7 @@ public class PetWindow extends JWindow {
     /**
      * 根据 Key 播放对应的语音和气泡
      * 
-     * @param key 语音键 (例如 "attack")
+     * @param key 语音键
      */
     private void sayForKey(String key) {
         SpeechPair pair = audioManager.getSpeechPair(key);
@@ -792,9 +793,9 @@ public class PetWindow extends JWindow {
         logger.warning("sayRandomly: 尝试 " + maxAttempts + " 次均抽到事件语音，跳过。");
     }
 
-    // ===============================
+    // =================================
     // 交互逻辑 (API, 道具, 特殊动作)
-    // ===============================
+    // =================================
 
     /**
      * 异步向服务器发送更新好感度的请求

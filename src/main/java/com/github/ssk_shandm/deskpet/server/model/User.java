@@ -8,7 +8,7 @@ public class User {
 
     private int id;
     private String username;
-    private int points; // 积分
+    // private int points; // 积分
 
     /**
      * 默认构造函数
@@ -23,10 +23,10 @@ public class User {
      * @param username 用户名
      * @param points   积分
      */
-    public User(int id, String username, int points) {
+    public User(int id, String username/* , int points */) {
         this.id = id;
         this.username = username;
-        this.points = points;
+        // this.points = points;
     }
 
     // Getters 和 Setters
@@ -46,11 +46,11 @@ public class User {
         this.username = username;
     }
 
-    public int getPoints() {
-        return points;
-    }
+    // public int getPoints() {
+    // return points;
+    // }
 
-    public void setPoints(int points) {
-        this.points = points;
-    }
+    // public void setPoints(int points) {
+    // this.points = points;
+    // }
 }

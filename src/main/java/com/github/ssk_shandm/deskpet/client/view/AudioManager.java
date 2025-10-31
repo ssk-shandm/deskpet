@@ -114,7 +114,7 @@ public class AudioManager {
     public void setVolume(float volume) {
         this.currentVolume = volume;
         logger.info("AudioManager: 音量设置为 " + volume);
-        // 注意: 音量在 play() 时动态应用, 而不是在此处遍历所有 Clip
+        // 注意 音量在 play() 时动态应用, 而不是在此处遍历所有 Clip
     }
 
     // ====================
@@ -176,7 +176,7 @@ public class AudioManager {
      * 异步上传新计算的数据
      * 加载 Clip 并存储 SpeechPair
      * 
-     * @param resourcePath    资源根路径 (例如 "/audio/BA/seia/")
+     * @param resourcePath    资源根路径 
      * @param cachedDurations 从服务器获取的时长缓存
      */
     private void loadSpeechData(String resourcePath, Map<String, Long> cachedDurations) {
@@ -301,7 +301,7 @@ public class AudioManager {
             FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
 
             // 将 0.0-1.0 的线性音量转换为分贝(dB)
-            // 这是一个对数转换
+            // 对数转换
             float dB = (volume <= 0.0001f)
                     ? gainControl.getMinimum() // 设为最小值 (静音)
                     : (float) (Math.log10(volume) * 20.0);

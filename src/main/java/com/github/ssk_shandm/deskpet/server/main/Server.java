@@ -28,7 +28,7 @@ public class Server {
     public static void main(String[] args) {
 
         // 初始化数据库 (检查或创建 .db 文件和表)
-        DatabaseUtil.initializeDatabase(); //
+        DatabaseUtil.initializeDatabase(); 
         logger.info("--- 数据库检查完成 ---");
 
         // 实例化服务

@@ -19,7 +19,7 @@ public class AudioService {
     }
 
     /**
-     * 保存（或更新）一批时长
+     * 更新一批时长
      */
     public void addDurations(Map<String, Long> newDurations) {
         if (newDurations != null && !newDurations.isEmpty()) {

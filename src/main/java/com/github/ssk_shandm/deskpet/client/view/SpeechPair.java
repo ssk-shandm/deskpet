@@ -11,14 +11,15 @@ public class SpeechPair {
     private final String key;
     // 预加载的音频剪辑
     private final Clip audioClip;
-    // 对应的显示文本 
+    // 对应的显示文本
     private final String text;
     // 缓存的音频毫秒时长
     private final long durationMs;
 
     /**
      * 构造函数
-     * * @param key        唯一标识键
+     * 
+     * @param key        唯一标识键
      * @param audioClip  预加载的音频剪辑
      * @param text       对应的显示文本
      * @param durationMs 音频的毫秒时长

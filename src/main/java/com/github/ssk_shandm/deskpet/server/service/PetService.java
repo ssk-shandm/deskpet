@@ -101,7 +101,7 @@ public class PetService {
         Pet pet = getOrCreatePet();
         if (pet == null) {
             logger.warning("getHappyInteractionRemainingCooldown: 无法获取宠物信息");
-            return HAPPY_INTERACTION_COOLDOWN; // 无法获取，假设还在冷却
+            return HAPPY_INTERACTION_COOLDOWN; 
         }
         long lastTime = pet.getLastClickTime();
         if (lastTime == 0) {

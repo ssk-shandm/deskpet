@@ -64,11 +64,11 @@ public class PetDao {
         try (Connection conn = DatabaseUtil.getConnection();
                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            // 更新参数 (已修正索引)
+            // 更新参数
             pstmt.setString(1, pet.getName());
-            // pstmt.setString(2, pet.getStatus()); // status 字段已注释
-            pstmt.setInt(2, pet.getLikeability()); // 原为 3
-            pstmt.setLong(3, pet.getLastClickTime()); // 原为 4
+            // pstmt.setString(2, pet.getStatus()); 
+            pstmt.setInt(2, pet.getLikeability()); 
+            pstmt.setLong(3, pet.getLastClickTime());
 
             int affectedRows = pstmt.executeUpdate();
 

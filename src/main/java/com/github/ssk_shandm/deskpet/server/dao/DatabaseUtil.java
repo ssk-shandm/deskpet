@@ -40,7 +40,7 @@ public class DatabaseUtil {
         String createAudioTableSql = "CREATE TABLE IF NOT EXISTS audio_durations (" +
                 "key TEXT PRIMARY KEY," +
                 "duration_ms INTEGER NOT NULL" +
-                ");";    
+                ");";
 
         // 插入默认数据
         String insertDefaultPetSql = "INSERT INTO pets (name, likeability, last_click_time) VALUES ('seia', 100, 0);";
@@ -50,7 +50,7 @@ public class DatabaseUtil {
         try (Connection cc = getConnection();
                 Statement stmt = cc.createStatement()) {
 
-            // 执行建表 (CREATE TABLE IF NOT EXISTS 是安全的)
+            // 执行建表
             stmt.execute(createUserTableSql);
             stmt.execute(createPetTableSql);
             stmt.execute(createAudioTableSql);
@@ -78,7 +78,8 @@ public class DatabaseUtil {
 
     /**
      * 获取一个到 SQLite 数据库的连接
-     * * @return Connection 对象, 如果失败则返回 null
+     * 
+     * @return Connection 对象, 如果失败则返回 null
      */
     public static Connection getConnection() {
         Connection cc = null;

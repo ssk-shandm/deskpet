@@ -22,7 +22,8 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 构造函数
-     * * @param parent 父窗口 (PetWindow)
+     * 
+     * @param parent 父窗口 (PetWindow)
      * @param gc     图形配置 (用于透明窗口)
      */
     public SpeechBubble(Window parent, GraphicsConfiguration gc) {
@@ -58,7 +59,8 @@ public class SpeechBubble extends JWindow {
 
     /**
      * 显示气泡
-     * * @param text       要显示的文字
+     * 
+     * @param text       要显示的文字
      * @param durationMs 显示时长 (毫秒)
      * @param anchorY    锚点 (宠物头顶) 的屏幕 Y 坐标
      */
@@ -97,7 +99,7 @@ public class SpeechBubble extends JWindow {
     private class BubblePanel extends JPanel {
 
         public BubblePanel() {
-            // 必须设置为 false, 否则 JPanel 会绘制不透明的矩形背景
+            // 透明的矩形背景
             setOpaque(false);
         }
 
