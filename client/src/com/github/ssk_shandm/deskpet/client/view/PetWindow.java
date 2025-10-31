@@ -506,8 +506,8 @@ public class PetWindow extends JWindow {
     /**
      * 加载单个动画的所有帧 (带缩放)
      * 
-     * @param petName       宠物名 
-     * @param animationName 动画名 
+     * @param petName       宠物名
+     * @param animationName 动画名
      * @return 帧列表 (BufferedImage List), 失败返回 null
      */
     private List<BufferedImage> loadAnimationFrames(String petName, String animationName) {
@@ -1176,8 +1176,10 @@ public class PetWindow extends JWindow {
             // 必须是左键按下 (mousePressStart != null)，且非道具模式
             if (mousePressStart != null) {
                 // 首次拖动时，切换到 "pickup" 动画
-                if (!isAnimationPlaying("pickup")) {
-                    playAnimation("pickup");
+                if (animations.containsKey("pickup")) {
+                    if (!isAnimationPlaying("pickup")) {
+                        playAnimation("pickup");
+                    }
                 }
 
                 // 计算新窗口位置
