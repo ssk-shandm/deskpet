@@ -28,6 +28,8 @@ public class AudioManager {
     private final List<String> keyList = new ArrayList<>();
     private final Random random = new Random();
 
+    private Clip currentlyPlayingClip = null; // 跟踪当前播放的 Clip
+
     private boolean isMuted = false;
     private float currentVolume = 0.3f; // 0.0f (静音) - 1.0f (最大)
     private final ApiClient apiClient;
@@ -54,6 +56,12 @@ public class AudioManager {
      * 
      * @param key 音频的键
      */
+
+    // AudioManager.java
+    /**
+     * 播放指定的音频
+     * * @param key 音频的键
+     */
     public void play(String key) {
         if (isMuted) {
             logger.info("请求播放 " + key + "，但处于静音状态。");
@@ -66,24 +74,34 @@ public class AudioManager {
             return;
         }
 
-        Clip clip = pair.getAudioClip();
-        if (clip == null) {
+        Clip newClip = pair.getAudioClip(); // 获取即将播放的 Clip
+        if (newClip == null) {
             logger.warning("音频 " + key + " 的 Clip 为 null。");
             return;
         }
 
-        if (clip.isRunning()) {
-            clip.stop(); // 停止当前播放
+        // 检查当前是否有 Clip 正在播放
+        if (currentlyPlayingClip != null && currentlyPlayingClip.isRunning() && currentlyPlayingClip != newClip) {
+            logger.info("停止当前正在播放的音频 (非同一音频)。");
+            currentlyPlayingClip.stop(); // 停止旧的
         }
 
+        // 停止并重置将要播放的 Clip (处理重复播放同一个语音)
+        if (newClip.isRunning()) {
+            newClip.stop();
+        }
+
+        // 更新当前播放的引用
+        currentlyPlayingClip = newClip;
+
         try {
-            setClipVolume(clip, this.currentVolume); // 设置音量
+            setClipVolume(currentlyPlayingClip, this.currentVolume); // 设置音量
         } catch (Exception e) {
             logger.log(Level.WARNING, "设置音量失败: " + key, e);
         }
 
-        clip.setFramePosition(0); // 回到开头
-        clip.start(); // 播放
+        currentlyPlayingClip.setFramePosition(0); // 回到开头
+        currentlyPlayingClip.start(); // 播放
         logger.info("正在播放音频 " + key + " (音量: " + this.currentVolume + ")");
     }
 
@@ -96,13 +114,9 @@ public class AudioManager {
         this.isMuted = muted;
         logger.info("AudioManager: 静音设置为 " + muted);
 
-        // 如果设为静音, 停止所有正在播放的
-        if (muted) {
-            for (SpeechPair pair : speechMap.values()) {
-                if (pair.getAudioClip() != null && pair.getAudioClip().isRunning()) {
-                    pair.getAudioClip().stop();
-                }
-            }
+        // 如果设为静音, 并且有音频正在播放
+        if (muted && currentlyPlayingClip != null && currentlyPlayingClip.isRunning()) {
+            currentlyPlayingClip.stop(); // 只停止当前这一个
         }
     }
 
@@ -176,7 +190,7 @@ public class AudioManager {
      * 异步上传新计算的数据
      * 加载 Clip 并存储 SpeechPair
      * 
-     * @param resourcePath    资源根路径 
+     * @param resourcePath    资源根路径
      * @param cachedDurations 从服务器获取的时长缓存
      */
     private void loadSpeechData(String resourcePath, Map<String, Long> cachedDurations) {
