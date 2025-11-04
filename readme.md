@@ -1,4 +1,4 @@
-# 🚀 DeskPet - 桌面宠物项目
+# DeskPet - 桌面宠物项目
 
 `DeskPet` 是一个基于 Java 实现的客户端-服务器（C/S）架构的桌面宠物应用程序。客户端使用 Java Swing 构建，服务器使用 Java Sockets 和 SQLite 数据库实现。这是一款以碧蓝档案游戏中角色seia（圣娅）模型为基础的桌宠程序
 
